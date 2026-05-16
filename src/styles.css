@@ -1,0 +1,177 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-emerald: var(--emerald);
+  --color-emerald-foreground: var(--emerald-foreground);
+  --color-cream: var(--cream);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-elegant: 0 1px 2px 0 rgb(15 27 45 / 0.04), 0 1px 3px 0 rgb(15 27 45 / 0.05);
+  --shadow-lift: 0 12px 40px -16px rgb(15 27 45 / 0.18);
+  --shadow-soft: 0 2px 16px -4px rgb(15 27 45 / 0.06);
+}
+
+:root {
+  --radius: 0.875rem;
+
+  /* Brand — Boutique Imobiliária */
+  --navy: oklch(0.235 0.04 255);            /* #0F1B2D deep navy */
+  --navy-foreground: oklch(0.985 0.005 90);
+  --gold: oklch(0.7 0.09 75);               /* refined warm gold #B8945A */
+  --gold-foreground: oklch(0.235 0.04 255);
+  --emerald: oklch(0.45 0.08 175);          /* deep emerald #0F766E */
+  --emerald-foreground: oklch(0.985 0.005 90);
+  --cream: oklch(0.97 0.012 85);            /* warm paper #F6F2EA */
+
+  --background: oklch(0.985 0.008 85);      /* warm off-white #FAF9F5 */
+  --foreground: oklch(0.235 0.04 255);      /* deep navy text */
+
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  --primary: var(--navy);
+  --primary-foreground: var(--navy-foreground);
+  --secondary: oklch(0.955 0.01 85);
+  --secondary-foreground: var(--navy);
+  --muted: oklch(0.955 0.01 85);
+  --muted-foreground: oklch(0.5 0.018 255); /* slate */
+  --accent: var(--emerald);
+  --accent-foreground: var(--emerald-foreground);
+
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.6 0.13 160);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.78 0.13 70);
+  --warning-foreground: var(--navy);
+
+  --border: oklch(0.91 0.01 85);            /* warm border */
+  --input: oklch(0.91 0.01 85);
+  --ring: var(--emerald);
+
+  --chart-1: oklch(0.45 0.08 175);          /* emerald */
+  --chart-2: oklch(0.7 0.09 75);            /* gold */
+  --chart-3: oklch(0.235 0.04 255);         /* navy */
+  --chart-4: oklch(0.65 0.06 35);           /* terracotta */
+  --chart-5: oklch(0.55 0.04 255);          /* slate-blue */
+
+  /* Light premium sidebar — cream paper, navy text, emerald active */
+  --sidebar: oklch(0.97 0.012 85);          /* cream */
+  --sidebar-foreground: oklch(0.32 0.03 255);
+  --sidebar-primary: var(--emerald);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.93 0.014 85);
+  --sidebar-accent-foreground: var(--navy);
+  --sidebar-border: oklch(0.9 0.012 85);
+  --sidebar-ring: var(--emerald);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { font-family: var(--font-sans); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; font-weight: 600; }
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 30, "WONK" 0;
+    letter-spacing: -0.025em;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: color-mix(in oklab, white 75%, transparent);
+    backdrop-filter: blur(16px) saturate(160%);
+  }
+  .gradient-gold {
+    background: linear-gradient(135deg, oklch(0.78 0.1 80), oklch(0.65 0.09 70));
+  }
+  .gradient-navy {
+    background: linear-gradient(160deg, oklch(0.27 0.045 255), oklch(0.18 0.035 255));
+  }
+  .gradient-emerald {
+    background: linear-gradient(135deg, oklch(0.5 0.09 175), oklch(0.38 0.07 180));
+  }
+  .gradient-cream {
+    background: linear-gradient(180deg, oklch(0.985 0.008 85), oklch(0.96 0.014 85));
+  }
+  .texture-paper {
+    background-image:
+      radial-gradient(circle at 20% 0%, color-mix(in oklab, var(--gold) 6%, transparent) 0, transparent 40%),
+      radial-gradient(circle at 90% 100%, color-mix(in oklab, var(--emerald) 5%, transparent) 0, transparent 40%);
+  }
+  .ring-gold {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--gold) 35%, transparent);
+  }
+  .divider-ornament {
+    display: flex; align-items: center; gap: 0.75rem;
+    color: var(--muted-foreground); font-size: 0.7rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .divider-ornament::before, .divider-ornament::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(to right, transparent, var(--border), transparent);
+  }
+}

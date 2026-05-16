@@ -1,0 +1,41 @@
+ALTER TABLE IF EXISTS "user"
+  ADD COLUMN IF NOT EXISTS "display_name" text,
+  ADD COLUMN IF NOT EXISTS "bio" text,
+  ADD COLUMN IF NOT EXISTS "creci" text,
+  ADD COLUMN IF NOT EXISTS "avatar_url" text,
+  ADD COLUMN IF NOT EXISTS "cover_image_url" text,
+  ADD COLUMN IF NOT EXISTS "specialty" jsonb,
+  ADD COLUMN IF NOT EXISTS "years_experience" integer,
+  ADD COLUMN IF NOT EXISTS "city" text,
+  ADD COLUMN IF NOT EXISTS "state" text,
+  ADD COLUMN IF NOT EXISTS "instagram_url" text,
+  ADD COLUMN IF NOT EXISTS "whatsapp_number" text,
+  ADD COLUMN IF NOT EXISTS "website_url" text,
+  ADD COLUMN IF NOT EXISTS "cpf_cnpj" text,
+  ADD COLUMN IF NOT EXISTS "billing_name" text,
+  ADD COLUMN IF NOT EXISTS "billing_email" text,
+  ADD COLUMN IF NOT EXISTS "billing_address_line1" text,
+  ADD COLUMN IF NOT EXISTS "billing_address_city" text,
+  ADD COLUMN IF NOT EXISTS "billing_address_state" text,
+  ADD COLUMN IF NOT EXISTS "billing_address_zip" text,
+  ADD COLUMN IF NOT EXISTS "stripe_customer_id" text,
+  ADD COLUMN IF NOT EXISTS "stripe_subscription_id" text,
+  ADD COLUMN IF NOT EXISTS "plan_slug" text NOT NULL DEFAULT 'free',
+  ADD COLUMN IF NOT EXISTS "plan_acquired_at" timestamp,
+  ADD COLUMN IF NOT EXISTS "plan_expires_at" timestamp,
+  ADD COLUMN IF NOT EXISTS "plan_status" text NOT NULL DEFAULT 'free',
+  ADD COLUMN IF NOT EXISTS "payment_method_last4" text,
+  ADD COLUMN IF NOT EXISTS "payment_method_brand" text,
+  ADD COLUMN IF NOT EXISTS "is_blocked" boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "blocked_reason" text,
+  ADD COLUMN IF NOT EXISTS "onboarding_completed" boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "profile_completeness" integer NOT NULL DEFAULT 0;
+
+UPDATE "user"
+SET
+  "plan_slug" = COALESCE("plan_slug", 'free'),
+  "plan_status" = COALESCE("plan_status", 'free'),
+  "profile_completeness" = COALESCE("profile_completeness", 0),
+  "onboarding_completed" = COALESCE("onboarding_completed", false),
+  "is_blocked" = COALESCE("is_blocked", false)
+WHERE TRUE;
