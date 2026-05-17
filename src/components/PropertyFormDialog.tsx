@@ -123,6 +123,17 @@ function formatCep(value: string) {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+function toIntegerOrZero(value: string) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number) : 0;
+}
+
+function toOptionalInteger(value: string) {
+  if (!value.trim()) return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number) : undefined;
+}
+
 function featureSummary(features: Record<string, boolean>) {
   return featureLabels.filter(([key]) => features[key]).map(([, label]) => label);
 }
@@ -330,18 +341,12 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
 
   const submit = async () => {
     if (submitting) return;
-    if (
-      !form.title.trim() ||
-      !form.type.trim() ||
-      !form.businessType.trim() ||
-      !form.status.trim() ||
-      !form.price.trim() ||
-      !form.area.trim() ||
-      !form.neighborhood.trim() ||
-      !form.city.trim() ||
-      !form.state.trim()
-    ) {
-      toast.error("Preencha os campos obrigatórios");
+    if (!form.title.trim()) {
+      toast.error("Preencha o título do imóvel");
+      return;
+    }
+    if (!form.description.trim()) {
+      toast.error("Preencha a descrição do imóvel");
       return;
     }
     if (!coverPreview && !form.image.trim()) {
@@ -357,13 +362,13 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
           type: form.type.trim(),
           businessType: form.businessType.trim(),
           status: form.status.trim(),
-          price: Number(form.price),
-          condoValue: form.condoValue ? Number(form.condoValue) : undefined,
-          iptuValue: form.iptuValue ? Number(form.iptuValue) : undefined,
-          area: Number(form.area),
-          bedrooms: Number(form.bedrooms || 0),
-          bathrooms: Number(form.bathrooms || 0),
-          parking: Number(form.parking || 0),
+          price: toIntegerOrZero(form.price),
+          condoValue: toOptionalInteger(form.condoValue),
+          iptuValue: toOptionalInteger(form.iptuValue),
+          area: toIntegerOrZero(form.area),
+          bedrooms: toIntegerOrZero(form.bedrooms),
+          bathrooms: toIntegerOrZero(form.bathrooms),
+          parking: toIntegerOrZero(form.parking),
           cep: onlyDigits(form.cep).slice(0, 8) || undefined,
           street: form.street.trim() || undefined,
           number: form.number.trim() || undefined,
