@@ -109,7 +109,7 @@ type CreatePropertyInput = {
   images?: string[];
   highlight?: string;
   description?: string;
-  features?: Record<string, boolean>;
+  features?: Record<string, boolean | number>;
 };
 
 function slugifyCode(title: string) {
