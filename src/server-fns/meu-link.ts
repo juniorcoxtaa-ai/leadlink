@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { DEFAULT_QUIZ_BLOCKS } from "@/lib/quiz-blocks";
 import { getEffectivePlanSlug, getPlanCapabilities } from "@/lib/plans";
 import { validateSlug } from "@/lib/slug";
+import { normalizeVitrineConfig } from "@/lib/vitrine-config";
 
 const DEMO_AUTH_USER_ID = "demo-user-vista-mar-prime";
 
@@ -112,6 +113,7 @@ function sanitizeMeuLinkConfigPayload(incoming: any, previous: any, allowPremium
     quizBlocks: allowPremium ? incoming?.quizBlocks ?? base.quizBlocks ?? DEFAULT_QUIZ_BLOCKS : sanitizeQuizBlocksForFree(base),
     quizIntro: normalizeString(incoming?.quizIntro, normalizeString(base.quizIntro)),
     featuredIds: sanitizeFeaturedIds(incoming?.featuredIds, base.featuredIds ?? []),
+    vitrine: normalizeVitrineConfig(incoming?.vitrine, base.vitrine),
   };
 }
 

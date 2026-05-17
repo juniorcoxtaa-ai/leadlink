@@ -1,10 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
-  Bed,
-  Bath,
-  Car,
-  Maximize2,
   MapPin,
   Search,
   ArrowUpRight,
@@ -16,22 +12,40 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { getPropertiesBySlug } from "@/server-fns/properties";
 import { QuizDialog } from "@/components/QuizDialog";
 import type { MeuLinkConfig } from "@/lib/meu-link-store";
 import { EMPTY_MEU_LINK_CONFIG } from "@/lib/meu-link-store";
+import { VITRINE_COLOR_VALUES } from "@/lib/vitrine-config";
 import { safeSrc } from "@/lib/media";
+import {
+  formatPropertyLocation,
+  formatPropertyPrice,
+  getPropertyDetails,
+  type PropertyDisplayInput,
+  propertySearchText,
+  purposeBadgeLabel,
+  purposePriceLabel,
+  repairText,
+} from "@/lib/property-display";
+
+type PublicProperty = PropertyDisplayInput & {
+  id: string;
+  status?: string | null;
+  image?: string | null;
+  highlight?: string | null;
+  code?: string | null;
+};
 
 export const Route = createFileRoute("/l/$slug_/vitrine")({
-  head: ({ params }: any) => ({
+  head: ({ params }: { params: { slug: string } }) => ({
     meta: [
       { title: `Vitrine de imóveis — ${params.slug} · LeadLink` },
       { name: "description", content: "Portfólio premium de imóveis selecionados pelo corretor." },
     ],
   }),
-  loader: async ({ params }: any) => {
+  loader: async ({ params }: { params: { slug: string } }) => {
     const raw = await loadMeuLinkConfig({ data: params.slug });
     const cfg: MeuLinkConfig = raw
       ? { ...EMPTY_MEU_LINK_CONFIG, ...(raw as Partial<MeuLinkConfig>) }
@@ -42,21 +56,11 @@ export const Route = createFileRoute("/l/$slug_/vitrine")({
   component: VitrinePage,
 });
 
-function fmtBRL(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
-
-function fmtCompactBRL(n: number) {
-  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}M`;
-  if (n >= 1_000) return `R$ ${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}k`;
-  return fmtBRL(n);
-}
-
 function prettyName(slug: string) {
   return slug
     .split("-")
     .filter(Boolean)
-    .map((p: any) => p.charAt(0).toUpperCase() + p.slice(1))
+    .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1))
     .join(" ");
 }
 
@@ -64,7 +68,7 @@ function getInitials(name: string) {
   return name
     .split(" ")
     .filter(Boolean)
-    .map((p: any) => p[0])
+    .map((p: string) => p[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
@@ -80,7 +84,7 @@ function VitrinePage() {
   const { slug } = Route.useParams();
   const { cfg, props } = Route.useLoaderData() as {
     cfg: MeuLinkConfig;
-    props: Awaited<ReturnType<typeof getPropertiesBySlug>>;
+    props: PublicProperty[];
   };
   const corretor = cfg.name || prettyName(slug);
   const firstName = corretor.split(" ")[0];
@@ -96,32 +100,31 @@ function VitrinePage() {
   const list = useMemo(
     () =>
       props
-        .filter((p: any) => p.status === "Disponível")
-        .filter((p: any) => (type === "Todos" ? true : p.type === type))
-        .filter((p: any) =>
-          q.trim() === ""
-            ? true
-            : `${p.title} ${p.neighborhood} ${p.code}`.toLowerCase().includes(q.toLowerCase()),
-        ),
+        .filter((p) => repairText(p.status) === "Disponível")
+        .filter((p) => (type === "Todos" ? true : p.type === type))
+        .filter((p) => (q.trim() === "" ? true : propertySearchText(p).includes(q.toLowerCase()))),
     [props, q, type],
   );
 
   const featured = useMemo(() => {
-    const byId = new Map(props.map((p: any) => [p.id, p]));
-    const manual = (cfg.featuredIds || []).map((id) => byId.get(id)).filter(Boolean);
+    const byId = new Map(props.map((p) => [p.id, p]));
+    const manual = (cfg.featuredIds || [])
+      .map((id) => byId.get(id))
+      .filter((item): item is PublicProperty => Boolean(item));
     if (manual.length > 0) return manual;
-    const highlighted = props.filter((p: any) => p.highlight && p.status === "Disponível");
+    const highlighted = props.filter((p) => p.highlight && repairText(p.status) === "Disponível");
     if (highlighted.length > 0) return highlighted.slice(0, 3);
-    return props.filter((p: any) => p.status === "Disponível").slice(0, 3);
+    return props.filter((p) => repairText(p.status) === "Disponível").slice(0, 3);
   }, [cfg.featuredIds, props]);
 
   const cityRegion = cfg.city || props[0]?.city || "sua região";
-  const heroImage = featured[0]?.image || props[0]?.image;
+  const heroImage = cfg.vitrine?.coverUrl || featured[0]?.image || props[0]?.image;
+  const accentColor = VITRINE_COLOR_VALUES[cfg.vitrine?.accentColor || "navy"] ?? VITRINE_COLOR_VALUES.navy;
   const brokerPhone = cfg.whatsapp ? cfg.whatsapp.replace(/\D/g, "") : "";
   const whatsappHref = brokerPhone ? `https://wa.me/${brokerPhone}` : undefined;
 
   return (
-    <div className="min-h-screen bg-cream text-foreground antialiased">
+    <div className="min-h-screen bg-cream text-foreground antialiased" style={{ "--vitrine-accent": accentColor } as CSSProperties}>
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-cream/75 border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/l/$slug" params={{ slug }} className="flex items-center gap-3 group min-w-0">
@@ -150,7 +153,8 @@ function VitrinePage() {
           <button
             type="button"
             onClick={() => setCaptureOpen(true)}
-            className="group inline-flex items-center gap-1.5 rounded-full bg-emerald text-white text-xs md:text-sm font-medium px-4 md:px-5 py-2 md:py-2.5 shadow-[0_8px_24px_-10px_color-mix(in_oklab,var(--emerald)_70%,transparent)] hover:shadow-[0_10px_30px_-8px_color-mix(in_oklab,var(--emerald)_80%,transparent)] hover:-translate-y-px transition-all"
+            className="group inline-flex items-center gap-1.5 rounded-full text-white text-xs md:text-sm font-medium px-4 md:px-5 py-2 md:py-2.5 shadow-[0_8px_24px_-10px_color-mix(in_oklab,var(--vitrine-accent)_70%,transparent)] hover:shadow-[0_10px_30px_-8px_color-mix(in_oklab,var(--vitrine-accent)_80%,transparent)] hover:-translate-y-px transition-all"
+            style={{ background: "var(--vitrine-accent)" }}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Falar com {firstName}</span>
@@ -172,7 +176,7 @@ function VitrinePage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-navy/85 via-navy/80 to-navy/95" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_color-mix(in_oklab,var(--gold)_28%,transparent)_0%,transparent_55%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_color-mix(in_oklab,var(--emerald)_18%,transparent)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_color-mix(in_oklab,var(--vitrine-accent)_22%,transparent)_0%,transparent_50%)]" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-28 grid lg:grid-cols-[1.15fr_.85fr] gap-12 items-center">
@@ -182,8 +186,7 @@ function VitrinePage() {
               Portfólio exclusivo
             </div>
             <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.02]">
-              Encontre seu próximo imóvel em{" "}
-              <span className="italic text-gold">{cityRegion}</span>.
+              Encontre seu próximo imóvel em <span className="italic text-gold">{cityRegion}</span>.
             </h1>
             <p className="text-base md:text-lg text-white/75 max-w-xl leading-relaxed">
               {cfg.bio ||
@@ -206,7 +209,8 @@ function VitrinePage() {
               <button
                 type="button"
                 onClick={() => setCaptureOpen(true)}
-                className="group inline-flex items-center gap-2 rounded-full bg-emerald text-white text-sm font-medium px-6 py-3 shadow-[0_14px_36px_-12px_color-mix(in_oklab,var(--emerald)_80%,transparent)] hover:shadow-[0_18px_44px_-10px_color-mix(in_oklab,var(--emerald)_90%,transparent)] hover:-translate-y-0.5 transition-all"
+                className="group inline-flex items-center gap-2 rounded-full text-white text-sm font-medium px-6 py-3 shadow-[0_14px_36px_-12px_color-mix(in_oklab,var(--vitrine-accent)_80%,transparent)] hover:shadow-[0_18px_44px_-10px_color-mix(in_oklab,var(--vitrine-accent)_90%,transparent)] hover:-translate-y-0.5 transition-all"
+                style={{ background: "var(--vitrine-accent)" }}
               >
                 <MessageCircle className="h-4 w-4" />
                 Falar pelo WhatsApp
@@ -236,7 +240,9 @@ function VitrinePage() {
                   </div>
                 )}
                 <div className="text-white">
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-gold">Seu corretor</div>
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-gold">
+                    Seu corretor
+                  </div>
                   <div className="font-display text-xl font-semibold leading-tight flex items-center gap-1.5">
                     {corretor}
                     {cfg.verified && <BadgeCheck className="h-4 w-4 text-gold" />}
@@ -249,18 +255,26 @@ function VitrinePage() {
 
               <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-white/10">
                 <div>
-                  <div className="font-display text-2xl font-semibold text-white">{list.length}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">Disponíveis</div>
+                  <div className="font-display text-2xl font-semibold text-white">
+                    {list.length}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">
+                    Disponíveis
+                  </div>
                 </div>
                 <div>
                   <div className="font-display text-2xl font-semibold text-white">
                     {featured.length}
                   </div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">Em destaque</div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">
+                    Em destaque
+                  </div>
                 </div>
                 <div>
                   <div className="font-display text-2xl font-semibold text-white">24h</div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">Resposta</div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/55 mt-0.5">
+                    Resposta
+                  </div>
                 </div>
               </div>
 
@@ -277,13 +291,17 @@ function VitrinePage() {
             </div>
 
             <div className="hidden md:flex absolute -bottom-8 -right-4 lg:-right-10 gap-2 -rotate-3">
-              {featured.slice(0, 2).map((p: any) => (
+              {featured.slice(0, 2).map((p) => (
                 <div
                   key={p.id}
                   className="w-28 h-36 rounded-2xl overflow-hidden ring-2 ring-white/20 shadow-2xl"
                 >
                   {safeSrc(p.image) ? (
-                    <img src={safeSrc(p.image)} alt={p.title} className="w-full h-full object-cover" />
+                    <img
+                      src={safeSrc(p.image)}
+                      alt={repairText(p.title)}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full bg-white/10 grid place-items-center text-white/70 text-[10px] uppercase tracking-wider">
                       Sem imagem
@@ -296,7 +314,10 @@ function VitrinePage() {
         </div>
       </section>
 
-      <section id="vitrine" className="sticky top-16 z-30 backdrop-blur-xl bg-cream/85 border-b border-border/50">
+      <section
+        id="vitrine"
+        className="sticky top-16 z-30 backdrop-blur-xl bg-cream/85 border-b border-border/50"
+      >
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -316,9 +337,10 @@ function VitrinePage() {
                   onClick={() => setType(t)}
                   className={`shrink-0 text-xs font-medium px-4 py-2 rounded-full border transition-all ${
                     active
-                      ? "bg-navy text-navy-foreground border-navy shadow-[0_6px_18px_-8px_color-mix(in_oklab,var(--navy)_70%,transparent)]"
+                      ? "text-white border-transparent shadow-[0_6px_18px_-8px_color-mix(in_oklab,var(--vitrine-accent)_70%,transparent)]"
                       : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   }`}
+                  style={active ? { background: "var(--vitrine-accent)" } : undefined}
                 >
                   {t}
                 </button>
@@ -338,9 +360,7 @@ function VitrinePage() {
               {list.length} {list.length === 1 ? "imóvel disponível" : "imóveis disponíveis"}
             </h2>
           </div>
-          <div className="hidden md:block text-xs text-muted-foreground">
-            Atualizado hoje
-          </div>
+          <div className="hidden md:block text-xs text-muted-foreground">Atualizado hoje</div>
         </div>
 
         {list.length === 0 ? (
@@ -365,100 +385,104 @@ function VitrinePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
-            {list.map((p: any) => (
-              <Link
-                key={p.id}
-                to="/l/$slug/vitrine/$propertyId"
-                params={{ slug, propertyId: p.id }}
-                className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-navy/40 rounded-3xl"
-              >
-                <article className="relative rounded-3xl overflow-hidden bg-card border border-border/60 shadow-[0_2px_10px_-4px_rgba(15,27,45,0.08)] hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.28)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300">
-                  <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
-                    {safeSrc(p.image) ? (
-                      <img
-                        src={safeSrc(p.image)}
-                        alt={p.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-                      />
-                    ) : (
-                      <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
-                        Sem imagem
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/15 to-transparent" />
+            {list.map((p) => {
+              const location = formatPropertyLocation(p);
+              const details = getPropertyDetails(p).slice(0, 4);
+              const purpose = purposeBadgeLabel(p.businessType);
 
-                    <div className="absolute top-3.5 left-3.5 right-3.5 flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gold/95 text-navy backdrop-blur-md">
-                          {p.type}
-                        </span>
-                        {p.businessType && (
-                          <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 backdrop-blur-md">
-                            {p.businessType}
-                          </span>
-                        )}
-                        {p.highlight && (
-                          <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 backdrop-blur-md">
-                            {p.highlight}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-mono text-white/85 bg-black/25 backdrop-blur-md px-2 py-1 rounded-full">
-                        {p.code}
-                      </span>
-                    </div>
-
-                    <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/75 flex items-center gap-1 mb-1">
-                        <MapPin className="h-3 w-3" /> {p.neighborhood}
-                        {p.city ? ` · ${p.city}` : ""}
-                      </div>
-                      <div className="font-display text-xl md:text-[1.35rem] font-semibold leading-tight line-clamp-1 group-hover:text-gold transition-colors">
-                        {p.title}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-4">
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          {p.businessType === "Locação" ? "À locação por" : "À venda por"}
+              return (
+                <Link
+                  key={p.id}
+                  to="/l/$slug/vitrine/$propertyId"
+                  params={{ slug, propertyId: p.id }}
+                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-navy/40 rounded-3xl"
+                >
+                  <article className="relative rounded-3xl overflow-hidden bg-card border border-border/60 shadow-[0_2px_10px_-4px_rgba(15,27,45,0.08)] hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.28)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300">
+                    <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
+                      {safeSrc(p.image) ? (
+                        <img
+                          src={safeSrc(p.image)}
+                          alt={repairText(p.title)}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                        />
+                      ) : (
+                        <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
+                          Sem imagem
                         </div>
-                        <div className="font-display text-2xl font-semibold text-navy leading-tight">
-                          {fmtCompactBRL(p.price)}
-                        </div>
-                      </div>
-                      <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-secondary text-navy group-hover:bg-navy group-hover:text-navy-foreground transition-colors">
-                        <ArrowUpRight className="h-4 w-4" />
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground border-t border-border/60 pt-3.5">
-                      {p.bedrooms > 0 && (
-                        <span className="flex items-center gap-1.5">
-                          <Bed className="h-3.5 w-3.5" />
-                          <span className="text-foreground font-medium">{p.bedrooms}</span>
-                        </span>
                       )}
-                      <span className="flex items-center gap-1.5">
-                        <Bath className="h-3.5 w-3.5" />
-                        <span className="text-foreground font-medium">{p.bathrooms}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Car className="h-3.5 w-3.5" />
-                        <span className="text-foreground font-medium">{p.parking}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Maximize2 className="h-3.5 w-3.5" />
-                        <span className="text-foreground font-medium">{p.area}m²</span>
-                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/15 to-transparent" />
+
+                      <div className="absolute top-3.5 left-3.5 right-3.5 flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {p.type && (
+                            <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gold/95 text-navy backdrop-blur-md">
+                              {repairText(p.type)}
+                            </span>
+                          )}
+                          {purpose && (
+                            <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 backdrop-blur-md">
+                              {purpose}
+                            </span>
+                          )}
+                          {p.highlight && (
+                            <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 backdrop-blur-md">
+                              {repairText(p.highlight)}
+                            </span>
+                          )}
+                        </div>
+                        {p.code && (
+                          <span className="text-[10px] font-mono text-white/85 bg-black/25 backdrop-blur-md px-2 py-1 rounded-full">
+                            {p.code}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                        {location && (
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-white/75 flex items-center gap-1 mb-1">
+                            <MapPin className="h-3 w-3" /> {location}
+                          </div>
+                        )}
+                        <div className="font-display text-xl md:text-[1.35rem] font-semibold leading-tight line-clamp-1 group-hover:text-gold transition-colors">
+                          {repairText(p.title)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              </Link>
-            ))}
+
+                    <div className="p-5 space-y-4">
+                      <div className="flex items-end justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                            {purposePriceLabel(p.businessType)}
+                          </div>
+                          <div className="font-display text-2xl font-semibold text-navy leading-tight">
+                            {formatPropertyPrice(p.price)}
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-secondary text-navy group-hover:bg-navy group-hover:text-navy-foreground transition-colors">
+                          <ArrowUpRight className="h-4 w-4" />
+                        </span>
+                      </div>
+
+                      {details.length > 0 && (
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground border-t border-border/60 pt-3.5">
+                          {details.map((detail) => {
+                            const Icon = detail.icon;
+                            return (
+                              <span key={detail.key} className="flex items-center gap-1.5">
+                                <Icon className="h-3.5 w-3.5" />
+                                <span className="text-foreground font-medium">{detail.value}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
@@ -474,15 +498,16 @@ function VitrinePage() {
               Conte para {firstName} o que você procura.
             </h3>
             <p className="text-navy-foreground/75 mt-4 max-w-lg">
-              Atendimento personalizado, busca ativa de imóveis fora do portfólio público
-              e visitas agendadas no seu tempo.
+              Atendimento personalizado, busca ativa de imóveis fora do portfólio público e visitas
+              agendadas no seu tempo.
             </p>
           </div>
           <div className="flex md:justify-end">
             <button
               type="button"
               onClick={() => setCaptureOpen(true)}
-              className="group inline-flex items-center gap-2 rounded-full bg-emerald text-white text-sm font-medium px-7 py-4 shadow-[0_18px_44px_-12px_color-mix(in_oklab,var(--emerald)_80%,transparent)] hover:shadow-[0_22px_54px_-10px_color-mix(in_oklab,var(--emerald)_90%,transparent)] hover:-translate-y-0.5 transition-all"
+              className="group inline-flex items-center gap-2 rounded-full text-white text-sm font-medium px-7 py-4 shadow-[0_18px_44px_-12px_color-mix(in_oklab,var(--vitrine-accent)_80%,transparent)] hover:shadow-[0_22px_54px_-10px_color-mix(in_oklab,var(--vitrine-accent)_90%,transparent)] hover:-translate-y-0.5 transition-all"
+              style={{ background: "var(--vitrine-accent)" }}
             >
               <MessageCircle className="h-4 w-4" />
               Falar pelo WhatsApp agora
@@ -510,16 +535,21 @@ function VitrinePage() {
         <button
           type="button"
           onClick={() => setCaptureOpen(true)}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-emerald text-white text-sm font-semibold py-3.5 shadow-[0_14px_36px_-10px_color-mix(in_oklab,var(--emerald)_80%,transparent)]"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-full text-white text-sm font-semibold py-3.5 shadow-[0_14px_36px_-10px_color-mix(in_oklab,var(--vitrine-accent)_80%,transparent)]"
+          style={{ background: "var(--vitrine-accent)" }}
         >
           <MessageCircle className="h-4 w-4" />
           Falar pelo WhatsApp
         </button>
       </div>
 
-      <QuizDialog open={captureOpen} onOpenChange={setCaptureOpen} cfg={cfg} slug={slug} originPath="vitrine" />
+      <QuizDialog
+        open={captureOpen}
+        onOpenChange={setCaptureOpen}
+        cfg={cfg}
+        slug={slug}
+        originPath="vitrine"
+      />
     </div>
   );
 }
-
-

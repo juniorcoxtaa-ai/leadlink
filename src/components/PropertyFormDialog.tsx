@@ -13,17 +13,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { parsePropertyText } from "@/lib/propertyTextParser";
-import { createProperty } from "@/server-fns/properties";
+import { createProperty, updateProperty } from "@/server-fns/properties";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (property: Record<string, unknown>) => void;
+  onCreated?: (property: Record<string, unknown>) => void;
+  onSaved?: (property: Record<string, unknown>) => void;
+  property?: Record<string, any> | null;
 };
 
 type LocalImage = {
   id: string;
-  file: File;
+  file?: File;
   url: string;
   kind: "cover" | "gallery";
 };
@@ -50,6 +52,7 @@ const featureLabels = [
   ["elevador", "Elevador"],
   ["sacada", "Sacada"],
   ["varanda", "Varanda"],
+  ["terraco", "Terraço"],
   ["mobiliado", "Mobiliado"],
   ["semiMobiliado", "Semi mobiliado"],
   ["arCondicionado", "Ar-condicionado"],
@@ -102,6 +105,7 @@ const initialForm = {
     elevador: false,
     sacada: false,
     varanda: false,
+    terraco: false,
     mobiliado: false,
     semiMobiliado: false,
     arCondicionado: false,
@@ -124,14 +128,26 @@ function formatCep(value: string) {
 }
 
 function toIntegerOrZero(value: string) {
-  const number = Number(value);
+  const digits = onlyDigits(value);
+  const number = Number(digits || value);
   return Number.isFinite(number) ? Math.round(number) : 0;
 }
 
 function toOptionalInteger(value: string) {
   if (!value.trim()) return undefined;
-  const number = Number(value);
+  const digits = onlyDigits(value);
+  const number = Number(digits || value);
   return Number.isFinite(number) ? Math.round(number) : undefined;
+}
+
+function formatBRLInput(value: string | number | null | undefined) {
+  const digits = onlyDigits(String(value ?? ""));
+  if (!digits) return "";
+  return Number(digits).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
 }
 
 function featureSummary(features: Record<string, boolean>) {
@@ -151,7 +167,58 @@ function isAcceptedImage(file: File) {
   return ACCEPTED_TYPES.includes(file.type);
 }
 
-export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
+function propertyToForm(property?: Record<string, any> | null) {
+  if (!property) return initialForm;
+  const features =
+    property.features && typeof property.features === "object" && !Array.isArray(property.features)
+      ? (property.features as Record<string, unknown>)
+      : {};
+  return {
+    ...initialForm,
+    title: String(property.title ?? ""),
+    type: String(property.type ?? initialForm.type),
+    businessType: String(property.businessType ?? initialForm.businessType),
+    status: String(property.status ?? initialForm.status),
+    price: formatBRLInput(property.price),
+    condoValue: property.condoValue ? String(property.condoValue) : "",
+    iptuValue: property.iptuValue ? String(property.iptuValue) : "",
+    area: property.area ? String(property.area) : "",
+    bedrooms: String(property.bedrooms ?? "0"),
+    suites: features.suites ? String(features.suites) : "",
+    bathrooms: String(property.bathrooms ?? "0"),
+    parking: String(property.parking ?? "0"),
+    distanceFromBeachMeters: features.distanceFromBeachMeters
+      ? String(features.distanceFromBeachMeters)
+      : "",
+    cep: property.cep ? formatCep(String(property.cep)) : "",
+    street: String(property.street ?? ""),
+    number: String(property.number ?? ""),
+    complement: String(property.complement ?? ""),
+    neighborhood: String(property.neighborhood ?? ""),
+    city: String(property.city ?? initialForm.city),
+    state: String(property.state ?? initialForm.state),
+    image: String(property.image ?? ""),
+    highlight: String(property.highlight ?? ""),
+    description: String(property.description ?? ""),
+    features: {
+      ...initialForm.features,
+      ...Object.fromEntries(featureLabels.map(([key]) => [key, Boolean(features[key])])),
+    },
+  };
+}
+
+function existingGallery(property?: Record<string, any> | null): LocalImage[] {
+  if (!property || !Array.isArray(property.images)) return [];
+  return property.images
+    .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    .map((url, index) => ({
+      id: `existing-${index}-${url}`,
+      url,
+      kind: "gallery" as const,
+    }));
+}
+
+export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, property }: Props) {
   const [form, setForm] = useState(initialForm);
   const [quickText, setQuickText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -161,6 +228,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
   const lastCepRequested = useRef("");
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const isEditing = Boolean(property?.id);
 
   useEffect(() => {
     if (!open) {
@@ -173,6 +241,17 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
       lastCepRequested.current = "";
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(propertyToForm(property));
+    setQuickText("");
+    setSubmitting(false);
+    setCepLoading(false);
+    setCoverPreview(null);
+    setGalleryPreviews(existingGallery(property));
+    lastCepRequested.current = property?.cep ? onlyDigits(String(property.cep)) : "";
+  }, [open, property]);
 
   useEffect(() => {
     const cepDigits = onlyDigits(form.cep);
@@ -242,7 +321,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
       title: parsed.title || prev.title,
       type: parsed.type || prev.type,
       businessType: parsed.businessType || prev.businessType,
-      price: parsed.price !== undefined ? String(parsed.price) : prev.price,
+      price: parsed.price !== undefined ? formatBRLInput(parsed.price) : prev.price,
       bedrooms: parsed.bedrooms !== undefined ? String(parsed.bedrooms) : prev.bedrooms,
       suites: parsed.suites !== undefined ? String(parsed.suites) : prev.suites,
       bathrooms: parsed.bathrooms !== undefined ? String(parsed.bathrooms) : prev.bathrooms,
@@ -356,42 +435,44 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
 
     setSubmitting(true);
     try {
-      const property = await createProperty({
-        data: {
-          title: form.title.trim(),
-          type: form.type.trim(),
-          businessType: form.businessType.trim(),
-          status: form.status.trim(),
-          price: toIntegerOrZero(form.price),
-          condoValue: toOptionalInteger(form.condoValue),
-          iptuValue: toOptionalInteger(form.iptuValue),
-          area: toIntegerOrZero(form.area),
-          bedrooms: toIntegerOrZero(form.bedrooms),
-          bathrooms: toIntegerOrZero(form.bathrooms),
-          parking: toIntegerOrZero(form.parking),
-          cep: onlyDigits(form.cep).slice(0, 8) || undefined,
-          street: form.street.trim() || undefined,
-          number: form.number.trim() || undefined,
-          complement: form.complement.trim() || undefined,
-          neighborhood: form.neighborhood.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          image: coverPreview || form.image.trim() || undefined,
-          images: allGalleryUrls,
-          highlight: form.highlight.trim() || undefined,
-          description: form.description.trim() || undefined,
-          features: {
-            ...Object.fromEntries(featureLabels.map(([key]) => [key, form.features[key]])),
-            ...(form.suites ? { suites: Number(form.suites) } : {}),
-            ...(form.distanceFromBeachMeters
-              ? { distanceFromBeachMeters: Number(form.distanceFromBeachMeters) }
-              : {}),
-          },
+      const payload = {
+        title: form.title.trim(),
+        type: form.type.trim(),
+        businessType: form.businessType.trim(),
+        status: form.status.trim(),
+        price: toIntegerOrZero(form.price),
+        condoValue: toOptionalInteger(form.condoValue),
+        iptuValue: toOptionalInteger(form.iptuValue),
+        area: toIntegerOrZero(form.area),
+        bedrooms: toIntegerOrZero(form.bedrooms),
+        bathrooms: toIntegerOrZero(form.bathrooms),
+        parking: toIntegerOrZero(form.parking),
+        cep: onlyDigits(form.cep).slice(0, 8) || undefined,
+        street: form.street.trim() || undefined,
+        number: form.number.trim() || undefined,
+        complement: form.complement.trim() || undefined,
+        neighborhood: form.neighborhood.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        image: coverPreview || form.image.trim() || undefined,
+        images: allGalleryUrls,
+        highlight: form.highlight.trim() || undefined,
+        description: form.description.trim() || undefined,
+        features: {
+          ...Object.fromEntries(featureLabels.map(([key]) => [key, form.features[key]])),
+          ...(form.suites ? { suites: Number(form.suites) } : {}),
+          ...(form.distanceFromBeachMeters
+            ? { distanceFromBeachMeters: Number(form.distanceFromBeachMeters) }
+            : {}),
         },
-      });
+      };
+      const savedProperty = isEditing
+        ? await updateProperty({ data: { id: String(property?.id), ...payload } })
+        : await createProperty({ data: payload });
 
-      onCreated(property);
-      toast.success("Imóvel cadastrado com sucesso");
+      if (isEditing) onSaved?.(savedProperty);
+      else onCreated?.(savedProperty);
+      toast.success(isEditing ? "Imóvel atualizado com sucesso" : "Imóvel cadastrado com sucesso");
       onOpenChange(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao cadastrar imóvel");
@@ -404,7 +485,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Cadastrar imóvel</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar imóvel" : "Cadastrar imóvel"}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
@@ -538,9 +619,9 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
             <div className="grid gap-2">
               <Label>Preço</Label>
               <Input
-                type="number"
+                inputMode="numeric"
                 value={form.price}
-                onChange={(e) => update("price", e.target.value)}
+                onChange={(e) => update("price", formatBRLInput(e.target.value))}
               />
             </div>
             <div className="grid gap-2">
@@ -828,7 +909,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated }: Props) {
             Cancelar
           </Button>
           <Button onClick={submit} disabled={submitting}>
-            {submitting ? "Salvando..." : "Salvar imóvel"}
+            {submitting ? "Salvando..." : isEditing ? "Salvar alterações" : "Salvar imóvel"}
           </Button>
         </DialogFooter>
       </DialogContent>

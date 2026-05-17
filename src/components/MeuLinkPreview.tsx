@@ -11,6 +11,12 @@ import {
   type MeuLinkConfig,
 } from "@/lib/meu-link-store";
 import { safeSrc } from "@/lib/media";
+import {
+  formatPropertyLocation,
+  formatPropertyPrice,
+  purposeBadgeLabel,
+  repairText,
+} from "@/lib/property-display";
 import { QuizDialog } from "./QuizDialog";
 
 type FeaturedProp = {
@@ -18,7 +24,8 @@ type FeaturedProp = {
   title: string;
   businessType?: string | null;
   city?: string | null;
-  neighborhood: string;
+  neighborhood?: string | null;
+  state?: string | null;
   price: number;
   image?: string | null;
 };
@@ -47,16 +54,16 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
   const radius = BTN_RADIUS[cfg.btnShape];
   const fontFamily = FONT_FAMILIES[cfg.font].family;
 
-  const isImage = cfg.bgStyle === "image" && cfg.bgImage;
+  const hasBgImage = Boolean(safeSrc(cfg.bgImage));
   const preset = cfg.bgStyle !== "image" ? BG_PRESETS[cfg.bgStyle] : null;
-  const isDark = isImage || (preset?.isDark ?? false);
+  const isImageStyle = cfg.bgStyle === "image";
+  const isDark = hasBgImage || isImageStyle || (preset?.isDark ?? false);
   const text = isDark ? "text-white" : "text-foreground";
   const surface = isDark ? "bg-white/10 backdrop-blur-sm" : "bg-card border border-border";
   const surfaceText = isDark ? "text-white" : "text-foreground";
 
-  const bgStyle: React.CSSProperties = isImage
-    ? {}
-    : { background: preset?.preview };
+  const bgStyle: React.CSSProperties =
+    !hasBgImage && !isImageStyle ? { background: preset?.preview } : { background: preset?.preview };
 
   return (
     <div
@@ -64,7 +71,7 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
       style={{ ...bgStyle, fontFamily }}
     >
       {/* Imagem de fundo + overlays premium */}
-      {isImage && (
+      {hasBgImage && (
         <>
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
@@ -74,11 +81,14 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
             }}
             aria-hidden
           />
+          {preset && (
+            <div className="absolute inset-0 opacity-70 mix-blend-multiply" style={{ background: preset.preview }} aria-hidden />
+          )}
           <div
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(180deg, rgba(15,27,45,0.55) 0%, rgba(15,27,45,0.7) 55%, rgba(15,27,45,0.92) 100%)",
+                "linear-gradient(180deg, rgba(15,27,45,0.45) 0%, rgba(15,27,45,0.68) 55%, rgba(15,27,45,0.92) 100%)",
             }}
             aria-hidden
           />
@@ -90,6 +100,17 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
             aria-hidden
           />
         </>
+      )}
+
+      {!hasBgImage && isImageStyle && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(15,27,45,0.72) 0%, rgba(15,27,45,0.92) 100%)",
+          }}
+          aria-hidden
+        />
       )}
 
       <div
@@ -107,7 +128,11 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
             style={{ boxShadow: `0 0 0 4px ${accent.soft}` }}
           >
             {safeSrc(cfg.photoUrl) ? (
-              <img src={safeSrc(cfg.photoUrl)} alt={cfg.name} className="h-full w-full object-cover" />
+              <img
+                src={safeSrc(cfg.photoUrl)}
+                alt={cfg.name}
+                className="h-full w-full object-cover"
+              />
             ) : null}
             <AvatarFallback
               className="text-2xl font-bold"
@@ -123,9 +148,7 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
             </h2>
             {cfg.verified && <BadgeCheck className="h-4 w-4" style={{ color: accent.bg }} />}
           </div>
-          {cfg.subtitle && (
-            <div className="text-[11px] opacity-70 mt-0.5">{cfg.subtitle}</div>
-          )}
+          {cfg.subtitle && <div className="text-[11px] opacity-70 mt-0.5">{cfg.subtitle}</div>}
 
           <div className="flex items-center gap-1 text-[11px] opacity-80 mt-2">
             <MapPin className="h-3 w-3" /> {cfg.city}
@@ -183,14 +206,16 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
           {/* Vídeos */}
           {videos.length > 0 && (
             <div className="w-full mt-5 text-left">
-              <div className="text-[10px] uppercase tracking-wider opacity-60 mb-2">
-                Vídeos
-              </div>
+              <div className="text-[10px] uppercase tracking-wider opacity-60 mb-2">Vídeos</div>
               <div className="space-y-3">
                 {videos.slice(0, fullScreen ? 6 : 2).map((v) => {
                   const embed = toVideoEmbed(v.url);
                   return (
-                    <div key={v.id} className={`${surface} ${surfaceText} overflow-hidden`} style={{ borderRadius: radius }}>
+                    <div
+                      key={v.id}
+                      className={`${surface} ${surfaceText} overflow-hidden`}
+                      style={{ borderRadius: radius }}
+                    >
                       <div className="aspect-video bg-black/40 relative">
                         {embed ? (
                           <iframe
@@ -225,49 +250,49 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
                 Imóveis em destaque
               </div>
               <div className="space-y-2">
-                {featuredProps.slice(0, fullScreen ? 6 : 3).map((p) => (
-                  <Link
-                    key={p.id}
-                    to="/l/$slug/vitrine/$propertyId"
-                    params={{ slug: resolvedSlug, propertyId: p.id }}
-                    className={`flex items-center gap-2 p-1.5 ${surface} ${surfaceText} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer`}
-                    style={{ borderRadius: radius }}
-                  >
-                    {safeSrc(p.image) ? (
-                      <img
-                        src={safeSrc(p.image)}
-                        alt={p.title}
-                        className="h-10 w-10 object-cover shrink-0"
-                        style={{ borderRadius: `calc(${radius} * 0.6)` }}
-                      />
-                    ) : (
-                      <div
-                        className="h-10 w-10 shrink-0 bg-current/10 grid place-items-center text-[9px] opacity-70"
-                        style={{ borderRadius: `calc(${radius} * 0.6)` }}
-                      >
-                        Foto
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      {p.businessType && (
-                        <div className="mb-0.5 inline-flex rounded-full bg-current/10 px-1.5 py-0.5 text-[8px] uppercase tracking-wider opacity-80">
-                          {p.businessType}
+                {featuredProps.slice(0, fullScreen ? 6 : 3).map((p) => {
+                  const purpose = purposeBadgeLabel(p.businessType);
+                  const location = formatPropertyLocation(p);
+
+                  return (
+                    <Link
+                      key={p.id}
+                      to="/l/$slug/vitrine/$propertyId"
+                      params={{ slug: resolvedSlug, propertyId: p.id }}
+                      className={`flex items-center gap-2 p-1.5 ${surface} ${surfaceText} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer`}
+                      style={{ borderRadius: radius }}
+                    >
+                      {safeSrc(p.image) ? (
+                        <img
+                          src={safeSrc(p.image)}
+                          alt={repairText(p.title)}
+                          className="h-10 w-10 object-cover shrink-0"
+                          style={{ borderRadius: `calc(${radius} * 0.6)` }}
+                        />
+                      ) : (
+                        <div
+                          className="h-10 w-10 shrink-0 bg-current/10 grid place-items-center text-[9px] opacity-70"
+                          style={{ borderRadius: `calc(${radius} * 0.6)` }}
+                        >
+                          Foto
                         </div>
                       )}
-                      <div className="text-[10px] font-medium leading-tight line-clamp-1">
-                        {p.title}
+                      <div className="min-w-0 flex-1">
+                        {purpose && (
+                          <div className="mb-0.5 inline-flex rounded-full bg-current/10 px-1.5 py-0.5 text-[8px] uppercase tracking-wider opacity-80">
+                            {purpose}
+                          </div>
+                        )}
+                        <div className="text-[10px] font-medium leading-tight line-clamp-1">
+                          {repairText(p.title)}
+                        </div>
+                        {location && <div className="text-[9px] opacity-70">{location}</div>}
+                        <div className="text-[9px] opacity-80">{formatPropertyPrice(p.price)}</div>
                       </div>
-                      <div className="text-[9px] opacity-70">
-                        {p.neighborhood}
-                        {p.city ? ` · ${p.city}` : ""}
-                      </div>
-                      <div className="text-[9px] opacity-80">
-                        R$ {(p.price / 1000).toLocaleString("pt-BR")}k
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-medium opacity-80 pr-1">Ver imóvel</span>
-                  </Link>
-                ))}
+                      <span className="text-[9px] font-medium opacity-80 pr-1">Ver imóvel</span>
+                    </Link>
+                  );
+                })}
                 {!fullScreen && featuredProps.length > 3 && (
                   <div className="text-[9px] opacity-60 text-center pt-1">
                     + {featuredProps.length - 3} imóveis

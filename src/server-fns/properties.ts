@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { db } from "@/db";
 import { properties, user, meuLinkConfigs, organizations, plans } from "@/db/schema";
-import { eq, desc, inArray, and, count } from "drizzle-orm";
+import { eq, desc, inArray, and, count, ilike, or } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { assertCanCreateProperty } from "@/lib/plans";
 
@@ -53,12 +53,15 @@ export const getProperties = createServerFn({ method: "GET" }).handler(async ():
       businessType: properties.businessType,
       status: properties.status,
       price: properties.price,
+      condoValue: properties.condoValue,
+      iptuValue: properties.iptuValue,
       area: properties.area,
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       parking: properties.parking,
       neighborhood: properties.neighborhood,
       city: properties.city,
+      state: properties.state,
       description: properties.description,
       features: properties.features,
       brokerId: properties.brokerId,
@@ -112,6 +115,38 @@ type CreatePropertyInput = {
   features?: Record<string, boolean | number>;
 };
 
+type UpdatePropertyInput = Partial<CreatePropertyInput> & {
+  id: string;
+};
+
+export function propertyUpdateValues(data: Partial<CreatePropertyInput>) {
+  return {
+    ...(typeof data.title === "string" ? { title: data.title.trim() } : {}),
+    ...(typeof data.type === "string" ? { type: data.type.trim() } : {}),
+    ...(typeof data.businessType === "string" ? { businessType: data.businessType.trim() } : {}),
+    ...(typeof data.cep === "string" ? { cep: data.cep.trim() || null } : {}),
+    ...(typeof data.street === "string" ? { street: data.street.trim() || null } : {}),
+    ...(typeof data.number === "string" ? { number: data.number.trim() || null } : {}),
+    ...(typeof data.complement === "string" ? { complement: data.complement.trim() || null } : {}),
+    ...(typeof data.state === "string" ? { state: data.state.trim() || null } : {}),
+    ...(typeof data.status === "string" ? { status: data.status.trim() } : {}),
+    ...(typeof data.price === "number" ? { price: Math.round(data.price) } : {}),
+    ...(typeof data.condoValue === "number" ? { condoValue: Math.round(data.condoValue) } : {}),
+    ...(typeof data.iptuValue === "number" ? { iptuValue: Math.round(data.iptuValue) } : {}),
+    ...(typeof data.area === "number" ? { area: Math.round(data.area) } : {}),
+    ...(typeof data.bedrooms === "number" ? { bedrooms: Math.round(data.bedrooms) } : {}),
+    ...(typeof data.bathrooms === "number" ? { bathrooms: Math.round(data.bathrooms) } : {}),
+    ...(typeof data.parking === "number" ? { parking: Math.round(data.parking) } : {}),
+    ...(typeof data.neighborhood === "string" ? { neighborhood: data.neighborhood.trim() } : {}),
+    ...(typeof data.city === "string" ? { city: data.city.trim() } : {}),
+    ...(typeof data.image === "string" ? { image: data.image.trim() || null } : {}),
+    ...(Array.isArray(data.images) ? { images: data.images } : {}),
+    ...(typeof data.highlight === "string" ? { highlight: data.highlight.trim() || null } : {}),
+    ...(typeof data.description === "string" ? { description: data.description.trim() || null } : {}),
+    ...(data.features && typeof data.features === "object" ? { features: data.features } : {}),
+  };
+}
+
 function slugifyCode(title: string) {
   const base = title
     .normalize("NFD")
@@ -157,6 +192,23 @@ export const createProperty = _createProperty as unknown as (opts: {
   data: CreatePropertyInput;
 }) => ReturnType<typeof _createProperty>;
 
+const _updateProperty = createServerFn({ method: "POST" }).handler(async (ctx): Promise<any> => {
+  const data = ctx.data as unknown as UpdatePropertyInput;
+  const session = await requireSession();
+  await requirePropertyOwnership(data.id, session);
+  const values = propertyUpdateValues(data);
+  const [prop] = await db
+    .update(properties)
+    .set(values)
+    .where(eq(properties.id, data.id))
+    .returning();
+  return prop as any;
+});
+
+export const updateProperty = _updateProperty as unknown as (opts: {
+  data: UpdatePropertyInput;
+}) => ReturnType<typeof _updateProperty>;
+
 const _updatePropertyStatus = createServerFn({ method: "POST" }).handler(
   async (ctx): Promise<any> => {
     const data = ctx.data as unknown as { id: string; status: string };
@@ -174,6 +226,43 @@ const _updatePropertyStatus = createServerFn({ method: "POST" }).handler(
 export const updatePropertyStatus = _updatePropertyStatus as unknown as (opts: {
   data: { id: string; status: string };
 }) => ReturnType<typeof _updatePropertyStatus>;
+
+const _searchProperties = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
+  const query = String(ctx.data ?? "").trim();
+  if (query.length < 2) return [];
+  const session = await requireSession();
+  const isAdmin = (session.user as any).role === "admin";
+  const pattern = `%${query}%`;
+  const rows = await db
+    .select({
+      id: properties.id,
+      code: properties.code,
+      title: properties.title,
+      neighborhood: properties.neighborhood,
+      city: properties.city,
+      status: properties.status,
+      image: properties.image,
+    })
+    .from(properties)
+    .where(
+      and(
+        isAdmin ? undefined : eq(properties.brokerId, session.user.id),
+        or(
+          ilike(properties.code, pattern),
+          ilike(properties.title, pattern),
+          ilike(properties.neighborhood, pattern),
+          ilike(properties.city, pattern),
+        ),
+      ),
+    )
+    .orderBy(desc(properties.createdAt))
+    .limit(8);
+  return rows as any;
+});
+
+export const searchProperties = _searchProperties as unknown as (opts: {
+  data: string;
+}) => ReturnType<typeof _searchProperties>;
 
 const _getPropertiesByIds = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
   const ids = ctx.data as unknown as string[];
@@ -203,12 +292,15 @@ export async function getPropertyPublicBySlug(slug: string, propertyId: string) 
       businessType: properties.businessType,
       status: properties.status,
       price: properties.price,
+      condoValue: properties.condoValue,
+      iptuValue: properties.iptuValue,
       area: properties.area,
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       parking: properties.parking,
       neighborhood: properties.neighborhood,
       city: properties.city,
+      state: properties.state,
       description: properties.description,
       features: properties.features,
       image: properties.image,
@@ -280,12 +372,15 @@ const _getPropertiesBySlug = createServerFn({ method: "GET" }).handler(
         businessType: properties.businessType,
         status: properties.status,
         price: properties.price,
+        condoValue: properties.condoValue,
+        iptuValue: properties.iptuValue,
         area: properties.area,
         bedrooms: properties.bedrooms,
         bathrooms: properties.bathrooms,
         parking: properties.parking,
         neighborhood: properties.neighborhood,
         city: properties.city,
+        state: properties.state,
         description: properties.description,
         features: properties.features,
         image: properties.image,

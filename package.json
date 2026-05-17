@@ -30,6 +30,7 @@
     "test:stripe-extended": "tsx scripts/test-stripe-extended.ts",
     "test:regression-core": "tsx scripts/test-regression-core.ts",
     "test:property-parser": "tsx scripts/test-property-text-parser.ts",
+    "test:property-display": "tsx scripts/test-property-display.ts",
     "test:all-critical": "npm run test:p0-stability && npm run test:plans && npm run test:isolation && npm run test:stripe-webhook && npm run test:auth-session && npm run test:admin-rbac && npm run test:vitrine-isolation && npm run test:meu-link-security && npm run test:lead-masking && npm run test:stripe-extended && npm run test:regression-core"
   },
   "dependencies": {

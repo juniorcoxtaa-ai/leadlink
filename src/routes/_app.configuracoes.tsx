@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -11,8 +11,10 @@ import {
   Save,
   Shield,
   Sparkles,
+  Upload,
   User,
   Wallet,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,8 @@ import { getMyProfile, updateMyProfile, updateBillingInfo } from "@/server-fns/p
 import { createCustomerPortalSession } from "@/server-fns/stripe";
 import { calculateProfileCompleteness, getUserPlan } from "@/lib/plans";
 import { normalizeSlug } from "@/lib/slug";
+import { uploadImage } from "@/lib/meu-link-store";
+import { safeSrc } from "@/lib/media";
 
 export const Route = createFileRoute("/_app/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — Lead Link" }] }),
@@ -97,6 +101,8 @@ function ConfiguracoesPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -141,6 +147,23 @@ function ConfiguracoesPage() {
     form.billingAddressCity &&
     form.billingAddressState,
   );
+
+  const uploadProfileImage = async (field: "avatarUrl" | "coverImageUrl", file?: File) => {
+    if (!file) return;
+    const isCover = field === "coverImageUrl";
+    const maxSize = isCover ? 12 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(`Imagem muito grande (máx. ${isCover ? 12 : 8} MB)`);
+      return;
+    }
+    try {
+      const url = await uploadImage(file, form.slug || profile?.slug || "perfil", isCover ? "bg" : "photo");
+      setForm((curr) => ({ ...curr, [field]: url }));
+      toast.success(isCover ? "Capa enviada" : "Avatar enviado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a imagem");
+    }
+  };
 
   const saveIdentity = async () => {
     setProfileSaving(true);
@@ -375,19 +398,69 @@ function ConfiguracoesPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, state: e.target.value }))}
                 />
               </Field>
-              <Field label="Foto / avatar URL">
-                <Input
-                  value={form.avatarUrl}
-                  onChange={(e) => setForm((curr) => ({ ...curr, avatarUrl: e.target.value }))}
-                  placeholder="https://..."
-                />
+              <Field label="Foto / avatar">
+                <div className="space-y-2">
+                  {safeSrc(form.avatarUrl) && (
+                    <div className="relative h-20 w-20 overflow-hidden rounded-full border border-border bg-secondary">
+                      <img src={safeSrc(form.avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((curr) => ({ ...curr, avatarUrl: "" }))}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <Input
+                    value={form.avatarUrl}
+                    onChange={(e) => setForm((curr) => ({ ...curr, avatarUrl: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => uploadProfileImage("avatarUrl", e.target.files?.[0])}
+                  />
+                  <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Enviar avatar
+                  </Button>
+                </div>
               </Field>
-              <Field label="Foto de capa URL">
-                <Input
-                  value={form.coverImageUrl}
-                  onChange={(e) => setForm((curr) => ({ ...curr, coverImageUrl: e.target.value }))}
-                  placeholder="https://..."
-                />
+              <Field label="Foto de capa">
+                <div className="space-y-2">
+                  {safeSrc(form.coverImageUrl) && (
+                    <div className="relative h-28 overflow-hidden rounded-lg border border-border bg-secondary">
+                      <img src={safeSrc(form.coverImageUrl)} alt="Capa" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((curr) => ({ ...curr, coverImageUrl: "" }))}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  <Input
+                    value={form.coverImageUrl}
+                    onChange={(e) => setForm((curr) => ({ ...curr, coverImageUrl: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => uploadProfileImage("coverImageUrl", e.target.files?.[0])}
+                  />
+                  <Button type="button" variant="outline" onClick={() => coverInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Enviar capa
+                  </Button>
+                </div>
               </Field>
             </div>
             <Field label="Bio">

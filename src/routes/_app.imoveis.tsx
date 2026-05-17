@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PropertyFormDialog } from "@/components/PropertyFormDialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Bed, Bath, Car, Maximize2, MapPin, Plus, Search, SlidersHorizontal, Eye, Users, ExternalLink, Image as ImageIcon, Home } from "lucide-react";
+import { Bed, Bath, Car, Maximize2, MapPin, Plus, Search, SlidersHorizontal, Eye, Users, ExternalLink, Image as ImageIcon, Home, Pencil } from "lucide-react";
 import { getProperties, updatePropertyStatus } from "@/server-fns/properties";
 import { getMySlug } from "@/server-fns/meu-link";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ function ImoveisPage() {
   const [query, setQuery] = useState("");
   const [activeType, setActiveType] = useState("Todos");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
   const { items: loaded, mySlug } = Route.useLoaderData() as { items: any[]; mySlug: string | null };
   const plan = usePlanLimits();
@@ -155,6 +156,15 @@ function ImoveisPage() {
                 }} className="h-8 rounded-md border border-border bg-background px-2 text-xs">
                   <option>Disponível</option><option>Reservado</option><option>Vendido</option><option>Em captação</option>
                 </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full ml-auto"
+                  onClick={() => setEditing(p)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                </Button>
               </div>
             </div>
           </Card>
@@ -163,6 +173,17 @@ function ImoveisPage() {
       )}
 
       <PropertyFormDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(property) => setItems((prev) => [property, ...prev])} />
+      <PropertyFormDialog
+        open={Boolean(editing)}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        property={editing}
+        onSaved={(property) => {
+          setItems((prev) => prev.map((item) => (item.id === (property as any).id ? property : item)));
+          setEditing(null);
+        }}
+      />
 
       <UpgradeModal
         open={limitOpen}

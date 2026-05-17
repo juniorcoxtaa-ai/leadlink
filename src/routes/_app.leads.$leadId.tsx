@@ -19,6 +19,7 @@ import {
   Mail,
   MapPin,
   Send,
+  MessageCircle,
   MessageSquarePlus,
   CheckCheck,
   Lock,
@@ -56,6 +57,7 @@ import { UpgradeModal } from "@/components/UpgradeCTA";
 import { STATUS_LABEL } from "@/lib/lead-constants";
 import { scoreColor, statusBadgeClass } from "@/lib/status";
 import { toast } from "sonner";
+import { buildLeadWhatsappUrl } from "@/lib/lead-whatsapp";
 import {
   getLead,
   getBrokers,
@@ -64,6 +66,15 @@ import {
   addChatMessage,
   updateLeadBroker,
 } from "@/server-fns/leads";
+
+function openLeadWhatsapp(lead: { name?: string | null; phone?: string | null }) {
+  const url = buildLeadWhatsappUrl(lead);
+  if (!url) {
+    toast.error("Telefone do lead inválido. Atualize o contato antes de chamar no WhatsApp.");
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 export const Route = createFileRoute("/_app/leads/$leadId")({
   head: () => ({ meta: [{ title: `Lead — Leadlink` }] }),
@@ -138,7 +149,7 @@ function LeadDetail() {
           ]}
           primaryLabel="Ver planos"
           secondaryLabel="Voltar para Leads"
-          onPrimary={() => router.navigate({ to: "/planos" })}
+          onPrimary={() => router.navigate({ to: "/planos", search: {} })}
         />
       </div>
     );
@@ -225,6 +236,16 @@ function LeadDetail() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                className="bg-emerald text-emerald-foreground hover:bg-emerald/90"
+                onClick={() => openLeadWhatsapp(lead)}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Chamar no WhatsApp
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-border">

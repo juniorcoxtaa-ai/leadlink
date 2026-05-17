@@ -213,6 +213,60 @@ export const getLeads = createServerFn({ method: "GET" }).handler(async (): Prom
   });
 });
 
+const _searchLeads = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
+  const query = String(ctx.data ?? "").trim();
+  if (query.length < 2) return [];
+  const session = await requireSession();
+  if (!session) return [];
+  const currentSession = session as NonNullable<typeof session>;
+  const [planRow] = await db
+    .select({ organizationPlanSlug: plans.slug })
+    .from(user)
+    .leftJoin(organizations, eq(user.organizationId, organizations.id))
+    .leftJoin(plans, eq(organizations.planId, plans.id))
+    .where(eq(user.id, currentSession.user.id))
+    .limit(1);
+  const effectivePlanSlug = getEffectivePlanSlug({
+    planSlug: (currentSession.user as any).planSlug,
+    organizationPlanSlug: planRow?.organizationPlanSlug ?? null,
+  });
+  const normalizedQuery = query.toLowerCase();
+  const rows = await db
+    .select({
+      id: leads.id,
+      name: leads.name,
+      phone: leads.phone,
+      source: leads.source,
+      status: leads.status,
+      score: leads.score,
+      region: leads.region,
+      createdAt: leads.createdAt,
+    })
+    .from(leads)
+    .where(eq(leads.brokerId, currentSession.user.id))
+    .orderBy(desc(leads.createdAt));
+
+  return rows
+    .map((lead, index) => {
+      const visibility =
+        (currentSession.user as any).role === "admin"
+          ? { masked: false, isBlocked: false }
+          : getLeadVisibilityForUser({ planSlug: effectivePlanSlug }, index);
+      return { ...lead, isBlocked: visibility.masked };
+    })
+    .filter((lead) => !lead.isBlocked)
+    .filter((lead) =>
+      [lead.name, lead.phone, lead.region, lead.source].some((value) =>
+        String(value || "").toLowerCase().includes(normalizedQuery),
+      ),
+    )
+    .slice(0, 8) as any;
+});
+
+export const searchLeads = _searchLeads as unknown as (opts: {
+  data: string;
+}) => ReturnType<typeof _searchLeads>;
+
 export const getBrokers = createServerFn({ method: "GET" }).handler(async () => {
   const session = (await requireSession()) as NonNullable<
     Awaited<ReturnType<typeof requireSession>>

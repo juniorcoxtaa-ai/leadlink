@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { getAppointments, createAppointment, updateAppointmentStatus } from "@/server-fns/appointments";
 
 export const Route = createFileRoute("/_app/agenda")({
-  head: () => ({ meta: [{ title: "Agenda â€” Leadlink" }] }),
+  head: () => ({ meta: [{ title: "Agenda — Leadlink" }] }),
   loader: () => getAppointments(),
   component: AgendaPage,
 });
@@ -37,8 +37,9 @@ function AgendaPage() {
   const loaded = Route.useLoaderData() as any[];
   const [items, setItems] = useState<any[]>([]);
   const [view, setView] = useState<View>("semana");
-  const [today, setToday] = useState<Date>(() => startOfDay(new Date()));
-  const [cursor, setCursor] = useState<Date>(() => startOfDay(new Date()));
+  const [hydrated, setHydrated] = useState(false);
+  const [today, setToday] = useState<Date | null>(null);
+  const [cursor, setCursor] = useState<Date | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [filterType, setFilterType] = useState<string>("todos");
@@ -47,14 +48,19 @@ function AgendaPage() {
   useEffect(() => setItems(loaded || []), [loaded]);
 
   useEffect(() => {
-    const syncToday = () => setToday(startOfDay(new Date()));
+    const syncToday = () => {
+      const localToday = startOfDay(new Date());
+      setToday(localToday);
+      setCursor((current) => current ?? localToday);
+      setHydrated(true);
+    };
     syncToday();
     const id = setInterval(syncToday, 60_000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    if (+cursor < +today) setCursor(today);
+    if (cursor && today && +cursor < +today) setCursor(today);
   }, [cursor, today]);
 
   const filtered = useMemo(() => items.filter((a) => {
@@ -99,7 +105,33 @@ function AgendaPage() {
     setFormOpen(true);
   }
   function openEdit(a: any) { setEditing(a); setFormOpen(true); }
-  function shift(dir: number) { if (view === "dia") setCursor((c) => addDays(c, dir)); else if (view === "semana") setCursor((c) => addWeeks(c, dir)); else setCursor((c) => { const d = new Date(c); d.setMonth(d.getMonth() + dir); return d; }); }
+  function shift(dir: number) {
+    if (!cursor) return;
+    if (view === "dia") setCursor(addDays(cursor, dir));
+    else if (view === "semana") setCursor(addWeeks(cursor, dir));
+    else {
+      const d = new Date(cursor);
+      d.setMonth(d.getMonth() + dir);
+      setCursor(d);
+    }
+  }
+
+  if (!hydrated || !today || !cursor) {
+    return (
+      <div className="space-y-6 max-w-[1500px] mx-auto">
+        <Card className="p-6 border-border/70">
+          <div className="h-8 w-48 rounded-md bg-muted animate-pulse" />
+          <div className="mt-4 h-4 w-80 max-w-full rounded-md bg-muted animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-20 rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const monthLabel = format(cursor, "MMMM yyyy", { locale: ptBR });
   const weekStart = startOfWeek(cursor, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));

@@ -48,6 +48,58 @@ function normalizeInput(data: Record<string, unknown>) {
   };
 }
 
+async function syncMeuLinkProfile(userId: string, data: ReturnType<typeof normalizeInput>) {
+  const [ownedRow] = await db
+    .select({
+      slug: meuLinkConfigs.slug,
+      data: meuLinkConfigs.data,
+    })
+    .from(meuLinkConfigs)
+    .where(eq(meuLinkConfigs.userId, userId))
+    .limit(1);
+
+  const oldData =
+    ownedRow?.data && typeof ownedRow.data === "object" && !Array.isArray(ownedRow.data)
+      ? (ownedRow.data as Record<string, unknown>)
+      : {};
+  const photo = data.avatarUrl ?? "";
+  const coverImageUrl = data.coverImageUrl ?? "";
+  const merged: Record<string, unknown> = {
+    ...oldData,
+    whatsapp: data.whatsappNumber,
+    name: data.displayName,
+    displayName: data.displayName,
+    photo,
+    avatarUrl: photo,
+    photoUrl: photo,
+    coverImageUrl,
+  };
+
+  if (coverImageUrl) {
+    merged.bgImage = coverImageUrl;
+    merged.bgStyle = oldData.bgStyle === "image" || !oldData.bgStyle ? "image" : oldData.bgStyle;
+  }
+
+  if (ownedRow) {
+    await db
+      .update(meuLinkConfigs)
+      .set({
+        slug: data.slug,
+        data: merged,
+        updatedAt: new Date(),
+      })
+      .where(eq(meuLinkConfigs.userId, userId));
+    return;
+  }
+
+  await db.insert(meuLinkConfigs).values({
+    slug: data.slug,
+    userId,
+    data: merged,
+    updatedAt: new Date(),
+  });
+}
+
 export const getMyProfile = createServerFn({ method: "GET" }).handler(async (): Promise<any> => {
   const session = await requireSession();
   const [row] = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1);
@@ -83,6 +135,15 @@ export const updateMyProfile = createServerFn({ method: "POST" }).handler(
       .where(and(eq(user.slug, data.slug), ne(user.id, session.user.id)))
       .limit(1);
     if (slugOwner) throw new Error("Este slug já está em uso.");
+
+    const [meuLinkSlugOwner] = await db
+      .select({ userId: meuLinkConfigs.userId })
+      .from(meuLinkConfigs)
+      .where(eq(meuLinkConfigs.slug, data.slug))
+      .limit(1);
+    if (meuLinkSlugOwner?.userId && meuLinkSlugOwner.userId !== session.user.id) {
+      throw new Error("Este slug já está em uso.");
+    }
 
     const profileCompleteness = calculateProfileCompleteness({
       ...data,
@@ -124,6 +185,8 @@ export const updateMyProfile = createServerFn({ method: "POST" }).handler(
       })
       .where(eq(user.id, session.user.id))
       .returning();
+
+    await syncMeuLinkProfile(session.user.id, data);
 
     return updated;
   },

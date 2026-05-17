@@ -12,6 +12,7 @@ import {
   Search,
   Filter,
   Phone,
+  MessageCircle,
   MapPin,
   Lock,
   Link2,
@@ -33,6 +34,8 @@ import { scoreColor, statusBadgeClass } from "@/lib/status";
 import { getLeads } from "@/server-fns/leads";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { UpgradeModal } from "@/components/UpgradeCTA";
+import { toast } from "sonner";
+import { buildLeadWhatsappUrl } from "@/lib/lead-whatsapp";
 
 type LeadRow = Awaited<ReturnType<typeof getLeads>>[number] & {
   isBlocked?: unknown;
@@ -72,6 +75,15 @@ const ANSWER_LABELS: Record<string, string> = {
   "q-region": "Cidade/região",
   "q-timeline-buy": "Prazo",
 };
+
+function openLeadWhatsapp(lead: Pick<LeadRow, "name" | "phone">) {
+  const url = buildLeadWhatsappUrl(lead);
+  if (!url) {
+    toast.error("Telefone do lead inválido. Atualize o contato antes de chamar no WhatsApp.");
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 export const Route = createFileRoute("/_app/leads")({
   head: () => ({ meta: [{ title: "Leads — Leadlink" }] }),
@@ -273,7 +285,19 @@ function LeadCard({ lead, onClick }: { lead: LeadRow; onClick: () => void }) {
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-3"><MapPin className="h-3 w-3" /><span className="truncate">{lead.region}</span></div>
         <div className="flex items-center justify-between">
           <Badge variant="outline" className="text-[10px] font-normal">{lead.source}</Badge>
-          <Avatar className="h-6 w-6"><AvatarFallback className="bg-navy text-navy-foreground text-[9px]">{initials}</AvatarFallback></Avatar>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openLeadWhatsapp(lead);
+              }}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-emerald/25 bg-emerald/10 px-2 text-[10px] font-medium text-emerald hover:bg-emerald/15"
+            >
+              <MessageCircle className="h-3 w-3" /> WhatsApp
+            </button>
+            <Avatar className="h-6 w-6"><AvatarFallback className="bg-navy text-navy-foreground text-[9px]">{initials}</AvatarFallback></Avatar>
+          </div>
         </div>
       </Card>
     </button>
@@ -323,6 +347,7 @@ function TableView({ leads, onLeadClick }: { leads: LeadRow[]; onLeadClick: (lea
               <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Score</th>
               <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Origem</th>
               <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Telefone</th>
+              <th className="text-right px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Ação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -337,6 +362,7 @@ function TableView({ leads, onLeadClick }: { leads: LeadRow[]; onLeadClick: (lea
                   <td className="px-4 py-3 text-muted-foreground">—</td>
                   <td className="px-4 py-3"><Badge variant="outline" className="text-[10px]">{l.source || "—"}</Badge></td>
                   <td className="px-4 py-3 text-muted-foreground">—</td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">—</td>
                 </tr>
               ) : (
                 <tr key={l.id} className="hover:bg-secondary/30 cursor-pointer" onClick={() => onLeadClick(l)}>
@@ -346,11 +372,25 @@ function TableView({ leads, onLeadClick }: { leads: LeadRow[]; onLeadClick: (lea
                   <td className="px-4 py-3"><Badge variant="outline" className={`font-mono text-[10px] ${scoreColor(l.score)}`}>{l.score}</Badge></td>
                   <td className="px-4 py-3"><Badge variant="outline" className="text-[10px]">{l.source}</Badge></td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{l.phone}</td>
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-full text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openLeadWhatsapp(l);
+                      }}
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 mr-1" /> WhatsApp
+                    </Button>
+                  </td>
                 </tr>
               )
             )}
             {leads.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhum lead encontrado</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhum lead encontrado</td></tr>
             )}
           </tbody>
         </table>
@@ -375,6 +415,18 @@ function LeadCardMobile({ lead, onClick }: { lead: LeadRow; onClick: () => void 
       <div className="flex items-start justify-between mb-1"><div className="font-medium">{lead.name}</div><Badge variant="outline" className={`text-[10px] ${scoreColor(lead.score)}`}>{lead.score}</Badge></div>
       <div className="text-xs text-muted-foreground mb-2">{lead.interest}</div>
       <div className="flex items-center gap-2 flex-wrap"><Badge className={statusBadgeClass(lead.status)}>{STATUS_LABEL[lead.status as keyof typeof STATUS_LABEL] || lead.status}</Badge><Badge variant="outline" className="text-[10px]">{lead.source}</Badge><span className="text-[11px] text-muted-foreground inline-flex items-center gap-1 ml-auto"><Phone className="h-3 w-3" /> {lead.phone}</span></div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3 h-8 rounded-full text-xs"
+        onClick={(event) => {
+          event.stopPropagation();
+          openLeadWhatsapp(lead);
+        }}
+      >
+        <MessageCircle className="h-3.5 w-3.5 mr-1" /> WhatsApp
+      </Button>
     </button>
   );
 }
@@ -413,6 +465,15 @@ function LeadDetailDrawer({
                     <span>{formatLeadValue(lead.source)}</span>
                   </DrawerDescription>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => openLeadWhatsapp(lead)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1.5" /> WhatsApp
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Fechar detalhe do lead">
                   <X className="h-4 w-4" />
                 </Button>

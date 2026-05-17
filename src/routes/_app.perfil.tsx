@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/perfil")({
-  head: () => ({ meta: [{ title: "Perfil do Corretor â€” Leadlink" }] }),
+  head: () => ({ meta: [{ title: "Perfil do Corretor — Leadlink" }] }),
   loader: async () => {
     const [profile, mySlug] = await Promise.all([getMyProfile(), getMySlug().catch(() => null)]);
     return { profile, mySlug };

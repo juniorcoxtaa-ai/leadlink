@@ -19,6 +19,7 @@ import {
   type QuizQuestion,
 } from "@/lib/quiz-blocks";
 import { buildWhatsappMessage } from "@/lib/whatsapp-message";
+import { BRAZIL_PHONE_ERROR, toWhatsappNumber, validateBrazilPhone } from "@/lib/phone";
 
 type Props = {
   open: boolean;
@@ -45,6 +46,11 @@ const INTENT_MAP: Record<string, QuizIntent> = {
   "Comprar um imóvel": "compra",
   "Investir em imóveis": "investimento",
 };
+
+function isMobileDevice() {
+  if (typeof window === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(window.navigator.userAgent);
+}
 
 function normalizeQuestion(q: QuizQuestion): QuizQuestion {
   return {
@@ -122,6 +128,14 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
       toast.error("Esse campo é obrigatório");
       return;
     }
+    if (current.id === "q-phone") {
+      const phoneCheck = validateBrazilPhone(value);
+      if (!phoneCheck.ok) {
+        toast.error(phoneCheck.error);
+        return;
+      }
+      setAnswers((a) => ({ ...a, "q-phone": phoneCheck.phone }));
+    }
     if (current.id === "q-intent") {
       setIntentType(INTENT_MAP[value] ?? null);
     }
@@ -153,15 +167,26 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
       return;
     }
 
+    const leadPhone = validateBrazilPhone(phone);
+    if (!leadPhone.ok) {
+      toast.error(leadPhone.error);
+      return;
+    }
+
+    const brokerWhatsapp = toWhatsappNumber(cfg.whatsapp || "");
+    if (!brokerWhatsapp) {
+      toast.error(`WhatsApp do corretor inválido. ${BRAZIL_PHONE_ERROR}`);
+      return;
+    }
+
     setSubmitting(true);
 
-    const waPhone = (cfg.whatsapp || "").replace(/\D/g, "");
     const whatsappText = buildWhatsappMessage({
       name,
       city,
-      phone,
+      phone: leadPhone.phone,
       intentType,
-      quizAnswers: { ...answers, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
+      quizAnswers: { ...answers, "q-phone": leadPhone.phone, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
     });
 
     try {
@@ -169,7 +194,7 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
         data: {
           name,
           city,
-          phone,
+          phone: leadPhone.phone,
           source: "Meu Link / Quiz",
           originSlug: slug,
           originPath,
@@ -186,16 +211,14 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
               }
             : undefined,
           intentType: intentType || undefined,
-          quizAnswers: { ...answers, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
+          quizAnswers: { ...answers, "q-phone": leadPhone.phone, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
           notes: message || undefined,
         },
       });
 
-      if (waPhone) {
-        window.open(`https://wa.me/${waPhone}?text=${whatsappText}`, "_blank", "noopener,noreferrer");
-      } else {
-        toast.success("Respostas enviadas!");
-      }
+      const whatsappUrl = `https://wa.me/${brokerWhatsapp}?text=${whatsappText}`;
+      if (isMobileDevice()) window.location.href = whatsappUrl;
+      else window.open(whatsappUrl, "_blank", "noopener,noreferrer");
       onOpenChange(false);
       setTimeout(reset, 300);
     } catch (e) {

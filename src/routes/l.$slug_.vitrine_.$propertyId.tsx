@@ -1,120 +1,89 @@
-﻿import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   ArrowLeft,
-  Bed,
-  Bath,
-  Car,
-  Maximize2,
+  ArrowUpRight,
+  BadgeCheck,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Instagram,
   MapPin,
   MessageCircle,
   Phone,
-  Check,
   Share2,
-  Heart,
-  Instagram,
-  BadgeCheck,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
 } from "lucide-react";
-import { getPropertyPublic } from "@/server-fns/properties";
-import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { QuizDialog } from "@/components/QuizDialog";
 import { EMPTY_MEU_LINK_CONFIG, type MeuLinkConfig } from "@/lib/meu-link-store";
 import { safeSrc } from "@/lib/media";
+import {
+  buildFeaturesList,
+  buildPropertyDescription,
+  formatPropertyLocation,
+  formatPropertyPrice,
+  getPropertyDetails,
+  type PropertyDisplayInput,
+  purposeBadgeLabel,
+  purposePriceLabel,
+  repairText,
+} from "@/lib/property-display";
+import { loadMeuLinkConfig } from "@/server-fns/meu-link";
+import { getPropertiesBySlug, getPropertyPublic } from "@/server-fns/properties";
+
+type PublicProperty = PropertyDisplayInput & {
+  id: string;
+  status?: string | null;
+  image?: string | null;
+  images?: unknown;
+  highlight?: string | null;
+  code?: string | null;
+};
 
 export const Route = createFileRoute("/l/$slug_/vitrine_/$propertyId")({
-  head: ({ params }: any) => ({
-    meta: [{ title: `ImÃ³vel â€” ${params.slug} Â· LeadLink` }],
+  head: ({ params }: { params: { slug: string } }) => ({
+    meta: [{ title: `Imóvel — ${params.slug} · LeadLink` }],
   }),
-  loader: async ({ params }: any) => {
-    const [property, rawCfg] = await Promise.all([
+  loader: async ({ params }: { params: { slug: string; propertyId: string } }) => {
+    const [property, rawCfg, props] = await Promise.all([
       getPropertyPublic({ data: { slug: params.slug, propertyId: params.propertyId } }),
       loadMeuLinkConfig({ data: params.slug }),
+      getPropertiesBySlug({ data: params.slug }),
     ]);
     const cfg: MeuLinkConfig = rawCfg
       ? { ...EMPTY_MEU_LINK_CONFIG, ...(rawCfg as Partial<MeuLinkConfig>) }
       : { ...EMPTY_MEU_LINK_CONFIG, slug: params.slug };
-    return { property, cfg };
+    return { property, cfg, props };
   },
   component: PropertyDetail,
 });
 
-function fmtBRL(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
-
-function fmtCompactBRL(n: number) {
-  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}M`;
-  if (n >= 1_000) return `R$ ${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}k`;
-  return fmtBRL(n);
-}
-
 function prettyName(slug: string) {
-  return slug.split("-").filter(Boolean).map((p: any) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
 }
 
-const FEATURE_LABELS: Record<string, string> = {
-  piscina: "Piscina",
-  churrasqueira: "Churrasqueira",
-  elevador: "Elevador",
-  sacada: "Sacada",
-  mobiliado: "Mobiliado",
-  areaLazer: "Ãrea de lazer",
-  areaDeLazer: "Ãrea de lazer",
-  vistaMar: "Vista mar",
-  aceitaPet: "Aceita pet",
-  varandaGourmet: "Varanda gourmet",
-  cozinhaPlanejada: "Cozinha planejada",
-  arCondicionado: "Ar-condicionado",
-  pisoPorcelanato: "Piso porcelanato",
-  closet: "Closet",
-};
-
-function formatMoney(value?: number | null) {
-  if (value == null) return "";
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
-
-function buildFeaturesList(features: Record<string, boolean> | null | undefined) {
-  if (!features) return [];
-  return Object.entries(features)
-    .filter(([, enabled]) => Boolean(enabled))
-    .map(([key]) => FEATURE_LABELS[key] || key)
-    .filter(Boolean);
-}
-
-function buildDescription(p: any) {
-  if (p.description?.trim()) return p.description.trim();
-
-  const use = p.businessType === "LocaÃ§Ã£o" ? "locaÃ§Ã£o" : p.businessType === "Venda" ? "compra" : "moradia";
-  const pieces = [
-    `${p.title} Ã© um ${String(p.type || "imÃ³vel").toLowerCase()} de ${p.area}mÂ² localizado em ${p.neighborhood}, ${p.city}. O imÃ³vel conta com ${p.bedrooms} dormitÃ³rio(s), ${p.bathrooms} banheiro(s) e ${p.parking} vaga(s), sendo uma opÃ§Ã£o interessante para quem busca ${use} em uma regiÃ£o bem localizada.`,
-  ];
-
-  if (p.businessType === "Venda") {
-    pieces.push(`DisponÃ­vel para venda por ${formatMoney(p.price)}.`);
-  } else if (p.businessType === "LocaÃ§Ã£o") {
-    pieces.push(`DisponÃ­vel para locaÃ§Ã£o por ${formatMoney(p.price)}.`);
-  }
-
-  const condo = p.condoValue ? `CondomÃ­nio aproximado de ${formatMoney(p.condoValue)}` : "";
-  const iptu = p.iptuValue ? `IPTU de ${formatMoney(p.iptuValue)}` : "";
-  if (condo || iptu) pieces.push([condo, iptu].filter(Boolean).join(" e ") + ".");
-
-  const features = buildFeaturesList(p.features);
-  if (features.length > 0) pieces.push(`Entre os diferenciais cadastrados estÃ£o: ${features.join(", ")}.`);
-
-  return pieces.join(" ");
+function formatMeterPrice(price?: number | null, area?: number | null) {
+  const numericPrice = Number(price || 0);
+  const numericArea = Number(area || 0);
+  if (!numericPrice || !numericArea) return "";
+  return `${formatPropertyPrice(Math.round(numericPrice / numericArea))}/m²`;
 }
 
 function PropertyDetail() {
   const { slug } = Route.useParams();
-  const { property: p, cfg } = Route.useLoaderData() as {
-    property: Awaited<ReturnType<typeof getPropertyPublic>>;
+  const {
+    property: p,
+    cfg,
+    props,
+  } = Route.useLoaderData() as {
+    property: PublicProperty | null;
     cfg: MeuLinkConfig;
+    props: PublicProperty[];
   };
   const [quizOpen, setQuizOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -123,9 +92,11 @@ function PropertyDetail() {
     return (
       <div className="min-h-screen bg-cream text-foreground flex items-center justify-center px-6">
         <div className="max-w-md text-center space-y-3">
-          <div className="text-4xl">ðŸ </div>
-          <h1 className="font-display text-2xl font-semibold">ImÃ³vel indisponÃ­vel</h1>
-          <p className="text-sm text-muted-foreground">Este imÃ³vel nÃ£o estÃ¡ disponÃ­vel no momento.</p>
+          <div className="text-4xl">🏠</div>
+          <h1 className="font-display text-2xl font-semibold">Imóvel indisponível</h1>
+          <p className="text-sm text-muted-foreground">
+            Este imóvel não está disponível no momento.
+          </p>
           <Link
             to="/l/$slug/vitrine"
             params={{ slug }}
@@ -138,21 +109,29 @@ function PropertyDetail() {
     );
   }
 
-  const corretorName = cfg?.name || "corretor";
-  const corretor = corretorName || prettyName(slug);
+  const corretorName = cfg?.name || prettyName(slug);
   const firstName = corretorName.split(" ")[0] || "corretor";
-  const initials = corretor
+  const initials = corretorName
     .split(" ")
     .map((n: string) => n[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
   const instagramUrl = cfg.links.find((l) => l.enabled && /instagram\.com/i.test(l.url))?.url;
-  const gallery = [p.image, ...(Array.isArray(p.images) ? p.images : [])].filter(Boolean);
-  const features = useMemo(() => buildFeaturesList(p.features), [p.features]);
+  const gallery = [p.image, ...(Array.isArray(p.images) ? p.images : [])].filter(
+    Boolean,
+  ) as string[];
+  const details = getPropertyDetails(p);
+  const compactDetails = details.map((detail) => detail.compact).slice(0, 3);
+  const features = buildFeaturesList(p.features);
+  const location = formatPropertyLocation(p);
+  const meterPrice = formatMeterPrice(p.price, p.area);
   const brokerPhone = cfg.whatsapp ? cfg.whatsapp.replace(/\D/g, "") : "";
   const telUrl = brokerPhone ? `tel:+${brokerPhone}` : undefined;
-  const props: any[] = [];
+  const relatedProperties = props
+    .filter((item) => item.id !== p.id && repairText(item.status) === "Disponível")
+    .slice(0, 4);
+  const purpose = purposeBadgeLabel(p.businessType);
 
   return (
     <div className="min-h-screen bg-cream text-foreground antialiased">
@@ -171,23 +150,29 @@ function PropertyDetail() {
                 Vitrine do corretor
               </span>
               <span className="block truncate font-display text-sm md:text-base text-foreground">
-                {corretor}
+                {corretorName}
               </span>
             </span>
           </Link>
 
           <div className="hidden lg:flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-gold" />
-              {p.highlight || p.type}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              {p.neighborhood}, {p.city}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono">
-              {p.code}
-            </span>
+            {(p.highlight || p.type) && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-gold" />
+                {repairText(p.highlight || p.type)}
+              </span>
+            )}
+            {location && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                {location}
+              </span>
+            )}
+            {p.code && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono">
+                {p.code}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -207,26 +192,30 @@ function PropertyDetail() {
             <div className="flex items-center gap-2 flex-wrap text-[10px] uppercase tracking-[0.22em]">
               {p.highlight && (
                 <span className="inline-flex items-center gap-1 text-gold font-semibold">
-                  <Sparkles className="h-3 w-3" /> {p.highlight}
+                  <Sparkles className="h-3 w-3" /> {repairText(p.highlight)}
                 </span>
               )}
-              <span className="text-muted-foreground">{p.type}</span>
-              <span className="text-border">·</span>
-              <span className="text-muted-foreground font-mono">{p.code}</span>
+              {p.type && <span className="text-muted-foreground">{repairText(p.type)}</span>}
+              {purpose && <span className="text-muted-foreground">{purpose}</span>}
+              {p.code && <span className="text-muted-foreground font-mono">{p.code}</span>}
             </div>
             <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.02]">
-              {p.title}
+              {repairText(p.title)}
             </h1>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" /> {p.neighborhood}, {p.city}
-            </div>
+            {location && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" /> {location}
+              </div>
+            )}
           </div>
           <div className="md:text-right shrink-0">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">À venda por</div>
-            <div className="font-display text-3xl md:text-4xl font-semibold text-navy leading-none mt-1">
-              {fmtCompactBRL(p.price)}
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              {purposePriceLabel(p.businessType)}
             </div>
-            {p.area > 0 && <div className="text-xs text-muted-foreground mt-1">˜ {fmtBRL(Math.round(p.price / p.area))}/m²</div>}
+            <div className="font-display text-3xl md:text-4xl font-semibold text-navy leading-none mt-1">
+              {formatPropertyPrice(p.price)}
+            </div>
+            {meterPrice && <div className="text-xs text-muted-foreground mt-1">{meterPrice}</div>}
           </div>
         </div>
 
@@ -235,7 +224,7 @@ function PropertyDetail() {
             {safeSrc(gallery[active]) ? (
               <img
                 src={safeSrc(gallery[active])}
-                alt={p.title}
+                alt={repairText(p.title)}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
               />
             ) : (
@@ -245,109 +234,131 @@ function PropertyDetail() {
             )}
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-navy/40 to-transparent pointer-events-none" />
 
-            <button
-              onClick={() => setActive((i) => (i - 1 + gallery.length) % gallery.length)}
-              aria-label="Anterior"
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setActive((i) => (i + 1) % gallery.length)}
-              aria-label="Próximo"
-              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 backdrop-blur-md rounded-full px-2.5 py-1.5">
-              {gallery.map((_, i) => (
+            {gallery.length > 1 && (
+              <>
                 <button
-                  key={i}
-                  aria-label={`Foto ${i + 1}`}
-                  onClick={() => setActive(i)}
-                  className={`h-1.5 rounded-full transition-all ${
-                    active === i ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
-                  }`}
-                />
-              ))}
-            </div>
+                  onClick={() => setActive((i) => (i - 1 + gallery.length) % gallery.length)}
+                  aria-label="Anterior"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setActive((i) => (i + 1) % gallery.length)}
+                  aria-label="Próximo"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
+
+            {gallery.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 backdrop-blur-md rounded-full px-2.5 py-1.5">
+                {gallery.map((_, i) => (
+                  <button
+                    key={i}
+                    aria-label={`Foto ${i + 1}`}
+                    onClick={() => setActive(i)}
+                    className={`h-1.5 rounded-full transition-all ${
+                      active === i ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-3">
-            {gallery.slice(1, 5).map((img, i) => {
-              const idx = i + 1;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setActive(idx)}
-                  className={`relative aspect-[4/3] rounded-2xl overflow-hidden ring-1 transition-all group ${
-                    active === idx ? "ring-2 ring-navy" : "ring-border/60 hover:ring-foreground/30"
-                  }`}
-                >
-                  <img
-                    src={img}
-                    alt=""
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {i === 3 && gallery.length > 5 && (
-                    <div className="absolute inset-0 bg-navy/70 grid place-items-center text-white">
-                      <div className="text-center">
-                        <div className="font-display text-2xl font-semibold">+{gallery.length - 5}</div>
-                        <div className="text-[10px] uppercase tracking-wider mt-0.5">Ver fotos</div>
+          {gallery.length > 1 && (
+            <div className="grid gap-3">
+              {gallery.slice(1, 5).map((img, i) => {
+                const idx = i + 1;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActive(idx)}
+                    className={`relative aspect-[4/3] rounded-2xl overflow-hidden ring-1 transition-all group ${
+                      active === idx
+                        ? "ring-2 ring-navy"
+                        : "ring-border/60 hover:ring-foreground/30"
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt=""
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {i === 3 && gallery.length > 5 && (
+                      <div className="absolute inset-0 bg-navy/70 grid place-items-center text-white">
+                        <div className="text-center">
+                          <div className="font-display text-2xl font-semibold">
+                            +{gallery.length - 5}
+                          </div>
+                          <div className="text-[10px] uppercase tracking-wider mt-0.5">
+                            Ver fotos
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </button>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {details.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-12">
+            {details.map((detail) => {
+              const Icon = detail.icon;
+              return (
+                <div key={detail.key} className="rounded-2xl border border-border/70 bg-card p-5">
+                  <Icon className="h-5 w-5 text-navy mb-3" />
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {detail.label}
+                  </div>
+                  <div className="font-display text-2xl font-semibold mt-0.5">{detail.value}</div>
+                </div>
               );
             })}
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
-          {[
-            { icon: Bed, label: "DormitÃ³rios", value: p.bedrooms },
-            { icon: Bath, label: "Banheiros", value: p.bathrooms },
-            { icon: Car, label: "Vagas", value: p.parking },
-            { icon: Maximize2, label: "Ãrea Ãºtil", value: `${p.area}mÂ²` },
-          ].map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border/70 bg-card p-5">
-              <s.icon className="h-5 w-5 text-navy mb-3" />
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{s.label}</div>
-              <div className="font-display text-2xl font-semibold mt-0.5">{s.value}</div>
-            </div>
-          ))}
-        </div>
+        )}
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-10 pb-20">
           <div className="space-y-12">
             <section>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">Sobre o imÃ³vel</div>
-              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imÃ³vel</h2>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">
+                Sobre o imóvel
+              </div>
+              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imóvel</h2>
               <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed space-y-3">
-                <p>{buildDescription(p)}</p>
+                <p>{buildPropertyDescription(p)}</p>
               </div>
             </section>
 
             {features.length > 0 && (
               <section>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-4">Diferenciais</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-4">
+                  Diferenciais
+                </div>
                 <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
-                  {features.map((f) => (
-                    <div key={f} className="flex items-start gap-2 text-sm">
+                  {features.map((feature) => (
+                    <div key={feature} className="flex items-start gap-2 text-sm">
                       <Check className="h-4 w-4 text-emerald mt-0.5 shrink-0" />
-                      <span>{f}</span>
+                      <span>{feature}</span>
                     </div>
                   ))}
                 </div>
               </section>
             )}
 
-            <section className="rounded-2xl overflow-hidden border border-border/70 bg-card">
-              <div className="aspect-[16/7] bg-[linear-gradient(135deg,_color-mix(in_oklab,_var(--navy)_15%,_transparent),_color-mix(in_oklab,_var(--gold)_15%,_transparent))] grid place-items-center text-muted-foreground text-xs uppercase tracking-[0.2em]">
-                Mapa Â· {p.neighborhood}
-              </div>
-            </section>
+            {location && (
+              <section className="rounded-2xl overflow-hidden border border-border/70 bg-card">
+                <div className="aspect-[16/7] bg-[linear-gradient(135deg,_color-mix(in_oklab,_var(--navy)_15%,_transparent),_color-mix(in_oklab,_var(--gold)_15%,_transparent))] grid place-items-center text-muted-foreground text-xs uppercase tracking-[0.2em]">
+                  Mapa · {location}
+                </div>
+              </section>
+            )}
           </div>
 
           <aside className="lg:sticky lg:top-24 h-fit space-y-4">
@@ -355,15 +366,23 @@ function PropertyDetail() {
               <div className="bg-navy p-6 text-navy-foreground">
                 <div className="flex items-center gap-3">
                   {safeSrc(cfg.photoUrl) ? (
-                    <img src={safeSrc(cfg.photoUrl)} alt={corretor} className="h-14 w-14 rounded-full object-cover ring-2 ring-gold/40" />
+                    <img
+                      src={safeSrc(cfg.photoUrl)}
+                      alt={corretorName}
+                      className="h-14 w-14 rounded-full object-cover ring-2 ring-gold/40"
+                    />
                   ) : (
                     <div className="h-14 w-14 rounded-full bg-gold text-navy grid place-items-center font-display font-semibold text-lg ring-2 ring-gold/40">
                       {initials}
                     </div>
                   )}
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-gold">Seu corretor</div>
-                    <div className="font-display text-lg font-semibold leading-tight">{corretor}</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-gold">
+                      Seu corretor
+                    </div>
+                    <div className="font-display text-lg font-semibold leading-tight">
+                      {corretorName}
+                    </div>
                     <div className="text-xs text-navy-foreground/70">{cfg.city}</div>
                   </div>
                 </div>
@@ -386,25 +405,23 @@ function PropertyDetail() {
                     <Phone className="h-4 w-4" /> Ligar agora
                   </a>
                 )}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  {instagramUrl && (
-                    <a
-                      href={instagramUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition py-2.5 rounded-xl hover:bg-secondary/60"
-                    >
-                      <Instagram className="h-3.5 w-3.5" /> Instagram
-                    </a>
-                  )}
-                </div>
+                {instagramUrl && (
+                  <a
+                    href={instagramUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition py-2.5 rounded-xl hover:bg-secondary/60"
+                  >
+                    <Instagram className="h-3.5 w-3.5" /> Instagram
+                  </a>
+                )}
               </div>
               <div className="border-t border-border/60 px-5 py-4 grid grid-cols-2 gap-3 text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 text-emerald" /> Visita acompanhada
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Check className="h-3 w-3 text-emerald" /> DocumentaÃ§Ã£o
+                  <Check className="h-3 w-3 text-emerald" /> Documentação
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 text-emerald" /> Financiamento
@@ -416,84 +433,95 @@ function PropertyDetail() {
             </div>
 
             <div className="rounded-2xl border border-dashed border-border bg-cream p-5 text-xs text-muted-foreground leading-relaxed">
-              Atendimento exclusivo de segunda a sÃ¡bado. Visitas mediante agendamento.
+              Atendimento exclusivo de segunda a sábado. Visitas mediante agendamento.
             </div>
           </aside>
         </div>
 
-        <section className="max-w-7xl mx-auto px-0 md:px-0 pb-24">
-          <div className="flex items-end justify-between mb-8 px-4 md:px-8">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1">
-                Mais opÃ§Ãµes
+        {relatedProperties.length > 0 && (
+          <section className="max-w-7xl mx-auto px-0 md:px-0 pb-24">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1">
+                  Mais opções
+                </div>
+                <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
+                  Outros imóveis de {firstName}
+                </h2>
               </div>
-              <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
-                Outros imÃ³veis de {firstName}
-              </h2>
+              <Link
+                to="/l/$slug/vitrine"
+                params={{ slug }}
+                className="hidden md:inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground transition"
+              >
+                Ver vitrine completa <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <Link
-              to="/l/$slug/vitrine"
-              params={{ slug }}
-              className="hidden md:inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground transition"
-            >
-              Ver vitrine completa <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 px-4 md:px-8">
-            {props
-              .filter((item) => item.id !== p.id && item.status === "DisponÃ­vel")
-              .slice(0, 4)
-              .map((item) => (
-                <Link
-                  key={item.id}
-                  to="/l/$slug/vitrine/$propertyId"
-                  params={{ slug, propertyId: item.id }}
-                  className="group rounded-3xl overflow-hidden border border-border/60 bg-card hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.25)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
-                    {safeSrc(item.image) ? (
-                      <img
-                        src={safeSrc(item.image)}
-                        alt={item.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-                      />
-                    ) : (
-                      <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
-                        Sem imagem
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/10 to-transparent" />
-                    {item.highlight && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {relatedProperties.map((item) => {
+                const itemDetails = getPropertyDetails(item)
+                  .map((detail) => detail.compact)
+                  .slice(0, 2)
+                  .join(" · ");
+                const itemLocation = formatPropertyLocation(item);
+
+                return (
+                  <Link
+                    key={item.id}
+                    to="/l/$slug/vitrine/$propertyId"
+                    params={{ slug, propertyId: item.id }}
+                    className="group rounded-3xl overflow-hidden border border-border/60 bg-card hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.25)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300"
+                  >
+                    <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
+                      {safeSrc(item.image) ? (
+                        <img
+                          src={safeSrc(item.image)}
+                          alt={repairText(item.title)}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                        />
+                      ) : (
+                        <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
+                          Sem imagem
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/10 to-transparent" />
                       <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider bg-gold/95 text-navy px-2.5 py-1 rounded-full font-semibold backdrop-blur">
-                        {item.highlight}
+                        {purposeBadgeLabel(item.businessType) || repairText(item.type)}
                       </span>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/75 flex items-center gap-1 mb-1">
-                        <MapPin className="h-3 w-3" /> {item.neighborhood}
-                      </div>
-                      <div className="font-display text-base font-semibold leading-tight line-clamp-1 group-hover:text-gold transition-colors">
-                        {item.title}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 flex items-end justify-between gap-2">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ã€ venda</div>
-                      <div className="font-display text-lg font-semibold text-navy leading-tight">
-                        {fmtCompactBRL(item.price)}
+                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                        {itemLocation && (
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-white/75 flex items-center gap-1 mb-1">
+                            <MapPin className="h-3 w-3" /> {itemLocation}
+                          </div>
+                        )}
+                        <div className="font-display text-base font-semibold leading-tight line-clamp-1 group-hover:text-gold transition-colors">
+                          {repairText(item.title)}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground text-right">
-                      {item.bedrooms}d Â· {item.bathrooms}b<br />{item.area}mÂ²
+                    <div className="p-4 flex items-end justify-between gap-2">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                          {purposePriceLabel(item.businessType)}
+                        </div>
+                        <div className="font-display text-lg font-semibold text-navy leading-tight">
+                          {formatPropertyPrice(item.price)}
+                        </div>
+                      </div>
+                      {itemDetails && (
+                        <div className="text-[11px] text-muted-foreground text-right">
+                          {itemDetails}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </Link>
-              ))}
-          </div>
-        </section>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
       <footer className="border-t border-border/60 bg-cream">
@@ -503,7 +531,7 @@ function PropertyDetail() {
             params={{ slug }}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imÃ³veis
+            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imóveis
           </Link>
           <Link
             to="/"
@@ -545,7 +573,3 @@ function PropertyDetail() {
     </div>
   );
 }
-
-
-
-

@@ -1,5 +1,6 @@
 import { saveMeuLinkConfig, getMeuLinkConfig, loadMeuLinkConfig, getMySlug } from "@/server-fns/meu-link";
 import { DEFAULT_QUIZ_BLOCKS, sanitizeBlockQuestions, type QuizBlocks, type QuizQuestion } from "@/lib/quiz-blocks";
+import { DEFAULT_VITRINE_CONFIG, normalizeVitrineConfig, type VitrineConfig } from "@/lib/vitrine-config";
 
 export type Stat = { id: string; label: string; value: string };
 export type LinkItem = { id: string; label: string; url: string; enabled: boolean };
@@ -71,6 +72,7 @@ export type MeuLinkConfig = {
   quizBlocks: QuizBlocks;
   quizIntro: string;
   featuredIds: string[];
+  vitrine: VitrineConfig;
 };
 
 export const MANDATORY: Question[] = [
@@ -120,6 +122,7 @@ export const DEFAULT_CONFIG: MeuLinkConfig = {
   quizBlocks: DEFAULT_QUIZ_BLOCKS,
   quizIntro: "Em 30 segundos eu encontro o imóvel ideal pra você.",
   featuredIds: [],
+  vitrine: DEFAULT_VITRINE_CONFIG,
 };
 
 export const EMPTY_MEU_LINK_CONFIG: MeuLinkConfig = {
@@ -144,6 +147,7 @@ export const EMPTY_MEU_LINK_CONFIG: MeuLinkConfig = {
   quizBlocks: DEFAULT_QUIZ_BLOCKS,
   quizIntro: "",
   featuredIds: [],
+  vitrine: DEFAULT_VITRINE_CONFIG,
 };
 
 export function sanitizeCustomLinks(links: LinkItem[] | undefined, slug = ""): LinkItem[] {
@@ -329,7 +333,7 @@ export async function loadConfig(slug?: string): Promise<MeuLinkConfig> {
   }
 }
 
-function normalizeMeuLinkConfig(data: Partial<MeuLinkConfig>, fallbackSlug = ""): MeuLinkConfig {
+export function normalizeMeuLinkConfig(data: Partial<MeuLinkConfig>, fallbackSlug = ""): MeuLinkConfig {
   const slug = data.slug?.trim() || fallbackSlug;
   return {
     ...EMPTY_MEU_LINK_CONFIG,
@@ -342,6 +346,7 @@ function normalizeMeuLinkConfig(data: Partial<MeuLinkConfig>, fallbackSlug = "")
       (data as Partial<{ questions: QuizQuestion[] }>).questions,
     )),
     featuredIds: data.featuredIds ?? [],
+    vitrine: normalizeVitrineConfig(data.vitrine),
     slug,
   };
 }

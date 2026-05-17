@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -42,10 +43,12 @@ function MeuLinkPage() {
   const [hydrated, setHydrated] = useState(false);
   const [hasRemoteConfig, setHasRemoteConfig] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [qrOpen, setQrOpen] = useState(false);
   const [availableProps, setAvailableProps] = useState<Awaited<ReturnType<typeof getProperties>>>([]);
   const [profile, setProfile] = useState<Awaited<ReturnType<typeof getMyProfile>> | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
+  const vitrineCoverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getProperties().then(setAvailableProps).catch(() => setAvailableProps([]));
@@ -88,6 +91,8 @@ function MeuLinkPage() {
     setCfg((c) => ({ ...c, [key]: value }));
   };
   const resolvedSlug = (cfg.slug || profile?.slug || "").trim();
+  const publicLink =
+    resolvedSlug && typeof window !== "undefined" ? `${window.location.origin}/l/${resolvedSlug}` : "";
   const fullUrl = resolvedSlug ? `leadlink.com.br/${resolvedSlug}` : "Configure seu endereço personalizado primeiro";
   const profileCompleted = Boolean(profile?.profileCompleted);
   const missingSlug = !resolvedSlug;
@@ -236,7 +241,8 @@ function MeuLinkPage() {
     if (file.size > 12 * 1024 * 1024) return toast.error("Imagem muito grande (máx. 12 MB)");
     try {
       const url = await uploadImage(file, cfg.slug, "bg");
-      setCfg((c) => ({ ...c, bgImage: url, bgStyle: "image" }));
+      setHasRemoteConfig(true);
+      setCfg((c) => ({ ...c, bgImage: url }));
       toast.success("Imagem de fundo aplicada");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível enviar a imagem");
@@ -253,9 +259,39 @@ function MeuLinkPage() {
     window.open(`/l/${resolvedSlug}`, "_blank", "noopener,noreferrer");
   };
 
+  const handleVitrineCoverUpload = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) return toast.error("Imagem muito grande (máx. 12 MB)");
+    try {
+      const url = await uploadImage(file, cfg.slug, "bg");
+      update("vitrine", { ...(cfg.vitrine ?? { coverUrl: "", accentColor: "navy" }), coverUrl: url });
+      toast.success("Capa da vitrine atualizada");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível enviar a imagem");
+    }
+  };
+
+  const copyPublicLink = async () => {
+    if (!resolvedSlug || !publicLink) {
+      toast.warning("Configure seu endereço personalizado primeiro");
+      return;
+    }
+    await navigator.clipboard.writeText(publicLink);
+    toast.success("Link copiado");
+  };
+
+  const openQrCode = () => {
+    if (!resolvedSlug) {
+      toast.warning("Configure seu endereço personalizado primeiro");
+      return;
+    }
+    setQrOpen(true);
+  };
+
   if (!hydrated) return <MeuLinkSkeleton />;
 
   return (
+    <>
     <div className="space-y-6 max-w-[1400px] mx-auto">
       {!profileCompleted && (
         <Card className="p-4 border-amber-200 bg-amber-50/60 flex items-start gap-3">
@@ -304,18 +340,11 @@ function MeuLinkPage() {
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={() => {
-              if (!resolvedSlug) {
-                toast.warning("Configure seu endereço personalizado primeiro");
-                return;
-              }
-              navigator.clipboard.writeText(`${window.location.origin}/l/${resolvedSlug}`);
-              toast.success("Link copiado");
-            }}
+            onClick={copyPublicLink}
           >
             <Copy className="h-4 w-4 mr-1.5" /> Copiar
           </Button>
-          <Button variant="outline" className="rounded-full">
+          <Button variant="outline" className="rounded-full" onClick={openQrCode}>
             <QrCode className="h-4 w-4 mr-1.5" /> QR
           </Button>
           <Button variant="outline" className="rounded-full" onClick={openPublic}>
@@ -498,6 +527,63 @@ function MeuLinkPage() {
                   )}
                   </div>
               </Section>
+
+              <Section
+                icon={<Home className="h-3.5 w-3.5" />}
+                title="Vitrine pública"
+                subtitle="Capa e cor principal usadas na vitrine de imóveis"
+              >
+                <div className="rounded-xl border border-border p-4 space-y-4">
+                  {safeSrc(cfg.vitrine?.coverUrl) ? (
+                    <div className="relative h-36 overflow-hidden rounded-lg border border-border bg-secondary">
+                      <img src={safeSrc(cfg.vitrine?.coverUrl)} alt="Capa da vitrine" className="h-full w-full object-cover" />
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-2 right-2 h-7 w-7 rounded-full"
+                        onClick={() =>
+                          update("vitrine", { ...(cfg.vitrine ?? { coverUrl: "", accentColor: "navy" }), coverUrl: "" })
+                        }
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-28 rounded-lg border border-dashed border-border bg-secondary/50 grid place-items-center text-xs text-muted-foreground">
+                      Nenhuma capa enviada
+                    </div>
+                  )}
+                  <input
+                    ref={vitrineCoverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleVitrineCoverUpload(e.target.files?.[0])}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => vitrineCoverInputRef.current?.click()}>
+                      <Upload className="h-3.5 w-3.5 mr-1.5" />
+                      {cfg.vitrine?.coverUrl ? "Trocar capa" : "Enviar capa"}
+                    </Button>
+                    {(["navy", "emerald", "gold", "rose", "violet", "slate"] as const).map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() =>
+                          update("vitrine", { ...(cfg.vitrine ?? { coverUrl: "", accentColor: "navy" }), accentColor: color })
+                        }
+                        className={`h-8 rounded-full border px-3 text-xs capitalize ${
+                          (cfg.vitrine?.accentColor ?? "navy") === color
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-card"
+                        }`}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Section>
             </TabsContent>
 
             {/* Aparência */}
@@ -618,7 +704,10 @@ function MeuLinkPage() {
                         size="icon"
                         variant="destructive"
                         className="absolute top-2 right-2 h-7 w-7 rounded-full"
-                        onClick={() => setCfg((c) => ({ ...c, bgImage: "", bgStyle: "paper" }))}
+                        onClick={() => {
+                          setHasRemoteConfig(true);
+                          setCfg((c) => ({ ...c, bgImage: "" }));
+                        }}
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -845,14 +934,7 @@ function MeuLinkPage() {
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs rounded-full"
-                onClick={() => {
-                  if (!resolvedSlug) {
-                    toast.warning("Configure seu endereço personalizado primeiro");
-                    return;
-                  }
-                  navigator.clipboard.writeText(`${window.location.origin}/l/${resolvedSlug}`);
-                  toast.success("Link copiado");
-                }}
+                onClick={copyPublicLink}
               >
                 <Copy className="h-3 w-3 mr-1" /> Copiar
               </Button>
@@ -883,6 +965,29 @@ function MeuLinkPage() {
         </div>
       </div>
     </div>
+    <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>QR Code do Meu Link</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-white p-4">
+            {publicLink && (
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(publicLink)}`}
+                alt="QR Code do Meu Link"
+                className="mx-auto h-64 w-64"
+              />
+            )}
+          </div>
+          <Input value={publicLink} readOnly className="font-mono text-xs" />
+          <Button className="w-full bg-navy text-navy-foreground hover:bg-navy/90" onClick={copyPublicLink}>
+            <Copy className="h-4 w-4 mr-1.5" /> Copiar link
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
