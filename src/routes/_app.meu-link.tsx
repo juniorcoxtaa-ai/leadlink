@@ -32,6 +32,7 @@ import { DEFAULT_QUIZ_BLOCKS, type QuizBlocks, type QuizIntent, type QuizQuestio
 import { MeuLinkPreview } from "@/components/MeuLinkPreview";
 import { safeSrc } from "@/lib/media";
 import { EmptyState } from "@/components/EmptyState";
+import { openUrlWithFallback } from "@/lib/open-url";
 
 export const Route = createFileRoute("/_app/meu-link")({
   head: () => ({ meta: [{ title: "Meu Link — Leadlink" }] }),
@@ -256,7 +257,9 @@ function MeuLinkPage() {
     }
     const r = await saveConfig({ ...cfg, slug: resolvedSlug });
     if (!r.ok) return toast.error(r.message);
-    window.open(`/l/${resolvedSlug}`, "_blank", "noopener,noreferrer");
+    const targetUrl =
+      typeof window !== "undefined" ? `${window.location.origin}/l/${resolvedSlug}` : `/l/${resolvedSlug}`;
+    openUrlWithFallback(targetUrl);
   };
 
   const handleVitrineCoverUpload = async (file?: File) => {
@@ -336,22 +339,24 @@ function MeuLinkPage() {
             </Button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="relative z-10 flex flex-wrap items-center gap-2">
           <Button
+            type="button"
             variant="outline"
-            className="rounded-full"
+            className="min-h-11 touch-manipulation rounded-full"
             onClick={copyPublicLink}
           >
             <Copy className="h-4 w-4 mr-1.5" /> Copiar
           </Button>
-          <Button variant="outline" className="rounded-full" onClick={openQrCode}>
+          <Button type="button" variant="outline" className="min-h-11 touch-manipulation rounded-full" onClick={openQrCode}>
             <QrCode className="h-4 w-4 mr-1.5" /> QR
           </Button>
-          <Button variant="outline" className="rounded-full" onClick={openPublic}>
+          <Button type="button" variant="outline" className="min-h-11 touch-manipulation rounded-full" onClick={openPublic}>
             <ExternalLink className="h-4 w-4 mr-1.5" /> Ver link público
           </Button>
           <Button
-            className="rounded-full bg-emerald text-emerald-foreground hover:bg-emerald/90"
+            type="button"
+            className="min-h-11 touch-manipulation rounded-full bg-emerald text-emerald-foreground hover:bg-emerald/90"
             onClick={async () => {
               const r = await saveConfig(cfg);
               if (r.ok) toast.success("Alterações salvas");
@@ -400,7 +405,7 @@ function MeuLinkPage() {
               <h3 className="font-display text-lg font-semibold leading-tight">Editor de perfil</h3>
               <p className="text-xs text-muted-foreground">Auto-salvo · sincronizado com o link público</p>
             </div>
-            <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openPublic}>
+            <Button type="button" size="sm" variant="ghost" className="min-h-10 touch-manipulation rounded-full text-xs" onClick={openPublic}>
               <Eye className="h-3.5 w-3.5 mr-1" /> Abrir link público
             </Button>
           </div>
@@ -931,14 +936,15 @@ function MeuLinkPage() {
             </div>
             <div className="flex gap-1.5">
               <Button
+                type="button"
                 size="sm"
                 variant="ghost"
-                className="h-7 text-xs rounded-full"
+                className="min-h-10 touch-manipulation text-xs rounded-full"
                 onClick={copyPublicLink}
               >
                 <Copy className="h-3 w-3 mr-1" /> Copiar
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs rounded-full" onClick={openPublic}>
+              <Button type="button" size="sm" variant="ghost" className="min-h-10 touch-manipulation text-xs rounded-full" onClick={openPublic}>
                 <ExternalLink className="h-3 w-3 mr-1" /> Abrir
               </Button>
             </div>

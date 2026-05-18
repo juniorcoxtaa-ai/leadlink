@@ -20,6 +20,7 @@ import {
 } from "@/lib/quiz-blocks";
 import { buildWhatsappMessage } from "@/lib/whatsapp-message";
 import { BRAZIL_PHONE_ERROR, toWhatsappNumber, validateBrazilPhone } from "@/lib/phone";
+import { openUrlWithFallback } from "@/lib/open-url";
 
 type Props = {
   open: boolean;
@@ -36,21 +37,104 @@ type Props = {
     price?: number;
     neighborhood: string;
     city?: string;
+    whatsapp?: string | null;
+    phone?: string | null;
   };
 };
 
 type Step = QuizQuestion;
+
+const PROPERTY_BUY_QUESTIONS: QuizQuestion[] = [
+  {
+    id: "q-property-buy-goal",
+    label: "Voce pretende comprar para morar ou investir?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Morar", "Investir", "Ainda estou decidindo"],
+  },
+  {
+    id: "q-property-financing-approved",
+    label: "Ja possui financiamento aprovado?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Sim", "Nao", "Estou simulando"],
+  },
+  {
+    id: "q-property-down-payment",
+    label: "Pretende usar entrada ou FGTS?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Entrada", "FGTS", "Entrada e FGTS", "Nao sei ainda"],
+  },
+  {
+    id: "q-property-closing-time",
+    label: "Qual prazo ideal para fechar negocio?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["O quanto antes", "Ate 30 dias", "1 a 3 meses", "So pesquisando"],
+  },
+  {
+    id: "q-property-visit",
+    label: "Deseja agendar uma visita?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Sim", "Quero combinar horarios", "Ainda nao"],
+  },
+];
+
+const PROPERTY_RENT_QUESTIONS: QuizQuestion[] = [
+  {
+    id: "q-property-rent-kind",
+    label: "Voce procura locacao anual ou temporada?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Anual", "Temporada", "Ainda estou decidindo"],
+  },
+  {
+    id: "q-property-residents",
+    label: "Quantas pessoas vao morar?",
+    type: "number",
+    required: true,
+    enabled: true,
+    placeholder: "Ex.: 2",
+  },
+  {
+    id: "q-property-pets",
+    label: "Possui pets?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Sim", "Nao"],
+  },
+  {
+    id: "q-property-move-date",
+    label: "Qual data deseja entrar no imovel?",
+    type: "text",
+    required: true,
+    enabled: true,
+    placeholder: "Ex.: 10/06",
+  },
+  {
+    id: "q-property-visit",
+    label: "Deseja agendar uma visita?",
+    type: "select",
+    required: true,
+    enabled: true,
+    options: ["Sim", "Quero combinar horarios", "Ainda nao"],
+  },
+];
 
 const INTENT_MAP: Record<string, QuizIntent> = {
   "Alugar um imóvel": "locacao",
   "Comprar um imóvel": "compra",
   "Investir em imóveis": "investimento",
 };
-
-function isMobileDevice() {
-  if (typeof window === "undefined") return false;
-  return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(window.navigator.userAgent);
-}
 
 function normalizeQuestion(q: QuizQuestion): QuizQuestion {
   return {
@@ -67,8 +151,22 @@ function buildSteps(blocks: QuizBlocks): Step[] {
       { id: "q-name", label: "Nome", type: "text", required: true, enabled: true },
       { id: "q-city", label: "Cidade", type: "text", required: true, enabled: true },
       { id: "q-phone", label: "WhatsApp", type: "tel", required: true, enabled: true },
-      { id: "q-terms", label: "Aceite dos termos", type: "select", required: true, enabled: true, options: ["Aceito"] },
-      { id: "q-msg", label: "Mensagem", type: "text", required: true, enabled: true, placeholder: "Como podemos te ajudar?" },
+      {
+        id: "q-terms",
+        label: "Aceite dos termos",
+        type: "select",
+        required: true,
+        enabled: true,
+        options: ["Aceito"],
+      },
+      {
+        id: "q-msg",
+        label: "Mensagem",
+        type: "text",
+        required: true,
+        enabled: true,
+        placeholder: "Como podemos te ajudar?",
+      },
     ];
   }
   return [INTENT_QUESTION, ...ESSENTIAL_QUESTIONS, FINAL_QUESTIONS[3]];
@@ -88,6 +186,31 @@ function getSelectedIntentQuestions(blocks: QuizBlocks, intentType: QuizIntent |
   return sanitizeBlockQuestions(blocks[intentType].questions).map(normalizeQuestion);
 }
 
+function normalizePurpose(value?: string | null) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getPropertyIntent(property?: Props["property"]): QuizIntent | null {
+  const purpose = normalizePurpose(
+    [property?.businessType, property?.type].filter(Boolean).join(" "),
+  );
+  if (!purpose) return null;
+  if (purpose.includes("locacao") || purpose.includes("aluguel") || purpose.includes("temporada")) {
+    return "locacao";
+  }
+  if (purpose.includes("venda")) return "compra";
+  return null;
+}
+
+function getPropertyQuestions(property?: Props["property"]) {
+  const intent = getPropertyIntent(property);
+  if (intent === "locacao") return PROPERTY_RENT_QUESTIONS;
+  return PROPERTY_BUY_QUESTIONS;
+}
+
 export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property }: Props) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -98,17 +221,21 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
 
   const accent = ACCENT_TOKENS[cfg.accent];
   const radius = BTN_RADIUS[cfg.btnShape];
+  const propertyIntent = getPropertyIntent(property);
   const steps = useMemo(() => {
+    if (property) {
+      return [...ESSENTIAL_QUESTIONS, ...getPropertyQuestions(property), FINAL_QUESTIONS[3]];
+    }
     const blocks = cfg.quizBlocks ?? DEFAULT_QUIZ_BLOCKS;
     const enabledBlocks = Object.values(blocks).filter((block) => block.enabled);
     if (!enabledBlocks.length) return buildSteps(blocks);
     const selected = getSelectedIntentQuestions(blocks, intentType);
     return [buildIntentQuestion(blocks), ...ESSENTIAL_QUESTIONS, ...selected, FINAL_QUESTIONS[3]];
-  }, [cfg.quizBlocks, intentType]);
+  }, [cfg.quizBlocks, intentType, property]);
 
   const current = steps[step];
   const progress = steps.length ? Math.round(((step + 1) / steps.length) * 100) : 0;
-  const value = current ? answers[current.id] ?? "" : "";
+  const value = current ? (answers[current.id] ?? "") : "";
 
   const reset = () => {
     setStep(0);
@@ -173,20 +300,37 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
       return;
     }
 
-    const brokerWhatsapp = toWhatsappNumber(cfg.whatsapp || "");
+    const brokerWhatsapp = toWhatsappNumber(
+      property?.whatsapp || property?.phone || cfg.whatsapp || "",
+    );
     if (!brokerWhatsapp) {
       toast.error(`WhatsApp do corretor inválido. ${BRAZIL_PHONE_ERROR}`);
       return;
     }
 
     setSubmitting(true);
+    const fullAnswers = {
+      ...answers,
+      "q-phone": leadPhone.phone,
+      "q-terms": acceptedTerms ? "Aceito" : "Nao aceito",
+    };
+    const propertyUrl =
+      property && typeof window !== "undefined" ? window.location.href : undefined;
 
     const whatsappText = buildWhatsappMessage({
       name,
       city,
       phone: leadPhone.phone,
-      intentType,
-      quizAnswers: { ...answers, "q-phone": leadPhone.phone, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
+      intentType: propertyIntent || intentType,
+      property: property
+        ? {
+            title: property.title,
+            businessType:
+              property.businessType || (propertyIntent === "locacao" ? "Locacao" : "Venda"),
+            url: propertyUrl,
+          }
+        : undefined,
+      quizAnswers: fullAnswers,
     });
 
     try {
@@ -210,15 +354,14 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                 city: property.city,
               }
             : undefined,
-          intentType: intentType || undefined,
-          quizAnswers: { ...answers, "q-phone": leadPhone.phone, "q-terms": acceptedTerms ? "Aceito" : "Não aceito" },
+          intentType: propertyIntent || intentType || undefined,
+          quizAnswers: fullAnswers,
           notes: message || undefined,
         },
       });
 
       const whatsappUrl = `https://wa.me/${brokerWhatsapp}?text=${whatsappText}`;
-      if (isMobileDevice()) window.location.href = whatsappUrl;
-      else window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      openUrlWithFallback(whatsappUrl);
       onOpenChange(false);
       setTimeout(reset, 300);
     } catch (e) {
@@ -243,8 +386,12 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
             color: accent.fg,
           }}
         >
-          <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">Quiz · {cfg.name.split(" ")[0]}</div>
-          <div className="text-lg font-semibold mt-1 leading-snug">{cfg.quizIntro || "Conte o que você procura"}</div>
+          <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">
+            Quiz · {cfg.name.split(" ")[0]}
+          </div>
+          <div className="text-lg font-semibold mt-1 leading-snug">
+            {cfg.quizIntro || "Conte o que você procura"}
+          </div>
           <div className="mt-3 flex items-center gap-3">
             <Progress value={progress} className="h-1.5 bg-white/20" />
             <span className="text-[11px] tabular-nums opacity-90">
@@ -270,7 +417,8 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                     <div>
                       <div className="text-base font-semibold">Antes de prosseguir</div>
                       <div className="text-sm text-muted-foreground leading-relaxed mt-1">
-                        Seus dados serão utilizados apenas para atendimento imobiliário e contato referente ao imóvel de interesse.
+                        Seus dados serão utilizados apenas para atendimento imobiliário e contato
+                        referente ao imóvel de interesse.
                       </div>
                     </div>
                   </div>
@@ -292,11 +440,19 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                       </button>
                       <div className="flex-1 text-sm leading-relaxed">
                         <span>Li e aceito os </span>
-                        <button type="button" className="font-medium underline underline-offset-4" onClick={() => setTermsOpen(true)}>
+                        <button
+                          type="button"
+                          className="font-medium underline underline-offset-4"
+                          onClick={() => setTermsOpen(true)}
+                        >
                           Termos de Uso
                         </button>
                         <span> e a </span>
-                        <button type="button" className="font-medium underline underline-offset-4" onClick={() => setTermsOpen(true)}>
+                        <button
+                          type="button"
+                          className="font-medium underline underline-offset-4"
+                          onClick={() => setTermsOpen(true)}
+                        >
                           Política de Privacidade
                         </button>
                         <span>.</span>
@@ -310,9 +466,10 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                     const selected = value === opt;
                     return (
                       <button
+                        type="button"
                         key={opt}
                         onClick={() => setAnswers((a) => ({ ...a, [current.id]: opt }))}
-                        className="text-left px-4 py-3 text-sm border-2 transition-all"
+                        className="min-h-11 touch-manipulation text-left px-4 py-3 text-sm border-2 transition-all"
                         style={{
                           borderRadius: radius,
                           borderColor: selected ? accent.bg : "var(--border)",
@@ -321,7 +478,9 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                         disabled={submitting}
                       >
                         <span className="inline-flex items-center gap-2">
-                          {selected && <Check className="h-3.5 w-3.5" style={{ color: accent.bg }} />}
+                          {selected && (
+                            <Check className="h-3.5 w-3.5" style={{ color: accent.bg }} />
+                          )}
                           {opt}
                         </span>
                       </button>
@@ -330,7 +489,9 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                 </div>
               ) : (
                 <Input
-                  type={current.type === "tel" ? "tel" : current.type === "number" ? "number" : "text"}
+                  type={
+                    current.type === "tel" ? "tel" : current.type === "number" ? "number" : "text"
+                  }
                   placeholder={current.placeholder}
                   value={value}
                   onChange={(e) => setAnswers((a) => ({ ...a, [current.id]: e.target.value }))}
@@ -341,10 +502,17 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
               )}
 
               <div className="flex items-center justify-between pt-3">
-                <Button variant="ghost" size="sm" onClick={back} disabled={step === 0 || submitting}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={back}
+                  disabled={step === 0 || submitting}
+                >
                   <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
                 </Button>
                 <Button
+                  type="button"
                   onClick={next}
                   className="text-white shadow-lg shadow-black/10"
                   style={{
@@ -369,7 +537,9 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground text-center py-6">Nenhuma pergunta ativa.</div>
+            <div className="text-sm text-muted-foreground text-center py-6">
+              Nenhuma pergunta ativa.
+            </div>
           )}
         </div>
       </DialogContent>
@@ -378,7 +548,13 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
   );
 }
 
-function TermsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function TermsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -390,11 +566,23 @@ function TermsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </div>
           </div>
           <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
-            <p>Coletamos nome, cidade e telefone para organizar o atendimento e retornar sobre o imóvel de interesse.</p>
-            <p>Seus dados são usados apenas para contato comercial relacionado ao atendimento imobiliário e podem incluir retorno via WhatsApp.</p>
-            <p>Não compartilhamos seus dados de forma indevida com terceiros fora da finalidade do atendimento.</p>
+            <p>
+              Coletamos nome, cidade e telefone para organizar o atendimento e retornar sobre o
+              imóvel de interesse.
+            </p>
+            <p>
+              Seus dados são usados apenas para contato comercial relacionado ao atendimento
+              imobiliário e podem incluir retorno via WhatsApp.
+            </p>
+            <p>
+              Não compartilhamos seus dados de forma indevida com terceiros fora da finalidade do
+              atendimento.
+            </p>
             <p>Você pode solicitar a exclusão ou atualização dos dados a qualquer momento.</p>
-            <p>Ao prosseguir, você declara estar ciente e concorda com esse uso para fins de atendimento.</p>
+            <p>
+              Ao prosseguir, você declara estar ciente e concorda com esse uso para fins de
+              atendimento.
+            </p>
           </div>
         </div>
       </DialogContent>

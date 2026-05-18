@@ -31,6 +31,7 @@ import {
 } from "@/lib/property-display";
 import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { getPropertiesBySlug, getPropertyPublic } from "@/server-fns/properties";
+import { toWhatsappNumber } from "@/lib/phone";
 
 type PublicProperty = PropertyDisplayInput & {
   id: string;
@@ -39,6 +40,8 @@ type PublicProperty = PropertyDisplayInput & {
   images?: unknown;
   highlight?: string | null;
   code?: string | null;
+  whatsapp?: string | null;
+  phone?: string | null;
 };
 
 export const Route = createFileRoute("/l/$slug_/vitrine_/$propertyId")({
@@ -126,7 +129,7 @@ function PropertyDetail() {
   const features = buildFeaturesList(p.features);
   const location = formatPropertyLocation(p);
   const meterPrice = formatMeterPrice(p.price, p.area);
-  const brokerPhone = cfg.whatsapp ? cfg.whatsapp.replace(/\D/g, "") : "";
+  const brokerPhone = toWhatsappNumber(p.whatsapp || p.phone || cfg.whatsapp || "") || "";
   const telUrl = brokerPhone ? `tel:+${brokerPhone}` : undefined;
   const relatedProperties = props
     .filter((item) => item.id !== p.id && repairText(item.status) === "Disponível")
@@ -561,13 +564,15 @@ function PropertyDetail() {
         originPath="vitrine"
         property={{
           id: p.id,
-          code: p.code,
-          title: p.title,
-          type: p.type,
-          businessType: p.businessType,
-          price: p.price,
-          neighborhood: p.neighborhood,
-          city: p.city,
+          code: p.code || "",
+          title: p.title || "Imovel",
+          type: p.type || undefined,
+          businessType: p.businessType || undefined,
+          price: p.price || undefined,
+          neighborhood: p.neighborhood || "",
+          city: p.city || undefined,
+          whatsapp: p.whatsapp,
+          phone: p.phone,
         }}
       />
     </div>
