@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-migrate.ts",
+    "migrate:property-images": "tsx scripts/migrate-property-images.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:demo": "tsx src/db/seed-demo.ts",
@@ -31,7 +32,9 @@
     "test:regression-core": "tsx scripts/test-regression-core.ts",
     "test:property-parser": "tsx scripts/test-property-text-parser.ts",
     "test:property-display": "tsx scripts/test-property-display.ts",
-    "test:all-critical": "npm run test:p0-stability && npm run test:plans && npm run test:isolation && npm run test:stripe-webhook && npm run test:auth-session && npm run test:admin-rbac && npm run test:vitrine-isolation && npm run test:meu-link-security && npm run test:lead-masking && npm run test:stripe-extended && npm run test:regression-core"
+    "test:all-critical": "npm run test:p0-stability && npm run test:plans && npm run test:isolation && npm run test:stripe-webhook && npm run test:auth-session && npm run test:admin-rbac && npm run test:vitrine-isolation && npm run test:meu-link-security && npm run test:lead-masking && npm run test:stripe-extended && npm run test:regression-core",
+    "test:api-extension": "vitest run src/routes/api/extension",
+    "test:extension": "npm --prefix chrome-extension run validate && npm run test:api-extension"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
@@ -103,6 +106,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "@vitest/coverage-v8": "^4.1.6",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
@@ -114,6 +118,7 @@
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.1.6"
   }
 }

@@ -15,6 +15,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as LSlugRouteImport } from './routes/l.$slug'
+import { Route as ApiPropertyImagesRouteImport } from './routes/api/property-images'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminUsoRouteImport } from './routes/admin.uso'
 import { Route as AdminSuporteRouteImport } from './routes/admin.suporte'
@@ -38,9 +39,18 @@ import { Route as AppAutomacoesRouteImport } from './routes/_app.automacoes'
 import { Route as AppAgendaRouteImport } from './routes/_app.agenda'
 import { Route as LSlugVitrineRouteImport } from './routes/l.$slug_.vitrine'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
+import { Route as ApiExtensionPropertiesRouteImport } from './routes/api/extension/properties'
+import { Route as ApiExtensionMeRouteImport } from './routes/api/extension/me'
+import { Route as ApiExtensionLeadsRouteImport } from './routes/api/extension/leads'
+import { Route as ApiExtensionAuthRouteImport } from './routes/api/extension/auth'
+import { Route as ApiExtensionAppointmentsRouteImport } from './routes/api/extension/appointments'
 import { Route as AdminCorretoresUserIdRouteImport } from './routes/admin.corretores.$userId'
 import { Route as AppLeadsLeadIdRouteImport } from './routes/_app.leads.$leadId'
 import { Route as LSlugVitrinePropertyIdRouteImport } from './routes/l.$slug_.vitrine_.$propertyId'
+import { Route as ApiExtensionLeadsIdRouteImport } from './routes/api/extension/leads.$id'
+import { Route as ApiExtensionAiAnalyzeRouteImport } from './routes/api/extension/ai.analyze'
+import { Route as ApiExtensionLeadsByPhonePhoneRouteImport } from './routes/api/extension/leads.by-phone.$phone'
+import { Route as ApiExtensionLeadsIdActivityRouteImport } from './routes/api/extension/leads.$id.activity'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -69,6 +79,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const LSlugRoute = LSlugRouteImport.update({
   id: '/l/$slug',
   path: '/l/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPropertyImagesRoute = ApiPropertyImagesRouteImport.update({
+  id: '/api/property-images',
+  path: '/api/property-images',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
@@ -186,6 +201,32 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExtensionPropertiesRoute = ApiExtensionPropertiesRouteImport.update({
+  id: '/api/extension/properties',
+  path: '/api/extension/properties',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionMeRoute = ApiExtensionMeRouteImport.update({
+  id: '/api/extension/me',
+  path: '/api/extension/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionLeadsRoute = ApiExtensionLeadsRouteImport.update({
+  id: '/api/extension/leads',
+  path: '/api/extension/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionAuthRoute = ApiExtensionAuthRouteImport.update({
+  id: '/api/extension/auth',
+  path: '/api/extension/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionAppointmentsRoute =
+  ApiExtensionAppointmentsRouteImport.update({
+    id: '/api/extension/appointments',
+    path: '/api/extension/appointments',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminCorretoresUserIdRoute = AdminCorretoresUserIdRouteImport.update({
   id: '/corretores/$userId',
   path: '/corretores/$userId',
@@ -201,6 +242,28 @@ const LSlugVitrinePropertyIdRoute = LSlugVitrinePropertyIdRouteImport.update({
   path: '/l/$slug/vitrine/$propertyId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExtensionLeadsIdRoute = ApiExtensionLeadsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiExtensionLeadsRoute,
+} as any)
+const ApiExtensionAiAnalyzeRoute = ApiExtensionAiAnalyzeRouteImport.update({
+  id: '/api/extension/ai/analyze',
+  path: '/api/extension/ai/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionLeadsByPhonePhoneRoute =
+  ApiExtensionLeadsByPhonePhoneRouteImport.update({
+    id: '/by-phone/$phone',
+    path: '/by-phone/$phone',
+    getParentRoute: () => ApiExtensionLeadsRoute,
+  } as any)
+const ApiExtensionLeadsIdActivityRoute =
+  ApiExtensionLeadsIdActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => ApiExtensionLeadsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -227,13 +290,23 @@ export interface FileRoutesByFullPath {
   '/admin/suporte': typeof AdminSuporteRoute
   '/admin/uso': typeof AdminUsoRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/api/property-images': typeof ApiPropertyImagesRoute
   '/l/$slug': typeof LSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/admin/corretores/$userId': typeof AdminCorretoresUserIdRoute
+  '/api/extension/appointments': typeof ApiExtensionAppointmentsRoute
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/leads': typeof ApiExtensionLeadsRouteWithChildren
+  '/api/extension/me': typeof ApiExtensionMeRoute
+  '/api/extension/properties': typeof ApiExtensionPropertiesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/l/$slug/vitrine': typeof LSlugVitrineRoute
+  '/api/extension/ai/analyze': typeof ApiExtensionAiAnalyzeRoute
+  '/api/extension/leads/$id': typeof ApiExtensionLeadsIdRouteWithChildren
   '/l/$slug/vitrine/$propertyId': typeof LSlugVitrinePropertyIdRoute
+  '/api/extension/leads/$id/activity': typeof ApiExtensionLeadsIdActivityRoute
+  '/api/extension/leads/by-phone/$phone': typeof ApiExtensionLeadsByPhonePhoneRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -259,13 +332,23 @@ export interface FileRoutesByTo {
   '/admin/suporte': typeof AdminSuporteRoute
   '/admin/uso': typeof AdminUsoRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/api/property-images': typeof ApiPropertyImagesRoute
   '/l/$slug': typeof LSlugRoute
   '/admin': typeof AdminIndexRoute
   '/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/admin/corretores/$userId': typeof AdminCorretoresUserIdRoute
+  '/api/extension/appointments': typeof ApiExtensionAppointmentsRoute
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/leads': typeof ApiExtensionLeadsRouteWithChildren
+  '/api/extension/me': typeof ApiExtensionMeRoute
+  '/api/extension/properties': typeof ApiExtensionPropertiesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/l/$slug/vitrine': typeof LSlugVitrineRoute
+  '/api/extension/ai/analyze': typeof ApiExtensionAiAnalyzeRoute
+  '/api/extension/leads/$id': typeof ApiExtensionLeadsIdRouteWithChildren
   '/l/$slug/vitrine/$propertyId': typeof LSlugVitrinePropertyIdRoute
+  '/api/extension/leads/$id/activity': typeof ApiExtensionLeadsIdActivityRoute
+  '/api/extension/leads/by-phone/$phone': typeof ApiExtensionLeadsByPhonePhoneRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -294,13 +377,23 @@ export interface FileRoutesById {
   '/admin/suporte': typeof AdminSuporteRoute
   '/admin/uso': typeof AdminUsoRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/api/property-images': typeof ApiPropertyImagesRoute
   '/l/$slug': typeof LSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/_app/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/admin/corretores/$userId': typeof AdminCorretoresUserIdRoute
+  '/api/extension/appointments': typeof ApiExtensionAppointmentsRoute
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/leads': typeof ApiExtensionLeadsRouteWithChildren
+  '/api/extension/me': typeof ApiExtensionMeRoute
+  '/api/extension/properties': typeof ApiExtensionPropertiesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/l/$slug_/vitrine': typeof LSlugVitrineRoute
+  '/api/extension/ai/analyze': typeof ApiExtensionAiAnalyzeRoute
+  '/api/extension/leads/$id': typeof ApiExtensionLeadsIdRouteWithChildren
   '/l/$slug_/vitrine_/$propertyId': typeof LSlugVitrinePropertyIdRoute
+  '/api/extension/leads/$id/activity': typeof ApiExtensionLeadsIdActivityRoute
+  '/api/extension/leads/by-phone/$phone': typeof ApiExtensionLeadsByPhonePhoneRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -329,13 +422,23 @@ export interface FileRouteTypes {
     | '/admin/suporte'
     | '/admin/uso'
     | '/admin/usuarios'
+    | '/api/property-images'
     | '/l/$slug'
     | '/admin/'
     | '/leads/$leadId'
     | '/admin/corretores/$userId'
+    | '/api/extension/appointments'
+    | '/api/extension/auth'
+    | '/api/extension/leads'
+    | '/api/extension/me'
+    | '/api/extension/properties'
     | '/api/stripe/webhook'
     | '/l/$slug/vitrine'
+    | '/api/extension/ai/analyze'
+    | '/api/extension/leads/$id'
     | '/l/$slug/vitrine/$propertyId'
+    | '/api/extension/leads/$id/activity'
+    | '/api/extension/leads/by-phone/$phone'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -361,13 +464,23 @@ export interface FileRouteTypes {
     | '/admin/suporte'
     | '/admin/uso'
     | '/admin/usuarios'
+    | '/api/property-images'
     | '/l/$slug'
     | '/admin'
     | '/leads/$leadId'
     | '/admin/corretores/$userId'
+    | '/api/extension/appointments'
+    | '/api/extension/auth'
+    | '/api/extension/leads'
+    | '/api/extension/me'
+    | '/api/extension/properties'
     | '/api/stripe/webhook'
     | '/l/$slug/vitrine'
+    | '/api/extension/ai/analyze'
+    | '/api/extension/leads/$id'
     | '/l/$slug/vitrine/$propertyId'
+    | '/api/extension/leads/$id/activity'
+    | '/api/extension/leads/by-phone/$phone'
   id:
     | '__root__'
     | '/'
@@ -395,13 +508,23 @@ export interface FileRouteTypes {
     | '/admin/suporte'
     | '/admin/uso'
     | '/admin/usuarios'
+    | '/api/property-images'
     | '/l/$slug'
     | '/admin/'
     | '/_app/leads/$leadId'
     | '/admin/corretores/$userId'
+    | '/api/extension/appointments'
+    | '/api/extension/auth'
+    | '/api/extension/leads'
+    | '/api/extension/me'
+    | '/api/extension/properties'
     | '/api/stripe/webhook'
     | '/l/$slug_/vitrine'
+    | '/api/extension/ai/analyze'
+    | '/api/extension/leads/$id'
     | '/l/$slug_/vitrine_/$propertyId'
+    | '/api/extension/leads/$id/activity'
+    | '/api/extension/leads/by-phone/$phone'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -409,9 +532,16 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPropertyImagesRoute: typeof ApiPropertyImagesRoute
   LSlugRoute: typeof LSlugRoute
+  ApiExtensionAppointmentsRoute: typeof ApiExtensionAppointmentsRoute
+  ApiExtensionAuthRoute: typeof ApiExtensionAuthRoute
+  ApiExtensionLeadsRoute: typeof ApiExtensionLeadsRouteWithChildren
+  ApiExtensionMeRoute: typeof ApiExtensionMeRoute
+  ApiExtensionPropertiesRoute: typeof ApiExtensionPropertiesRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   LSlugVitrineRoute: typeof LSlugVitrineRoute
+  ApiExtensionAiAnalyzeRoute: typeof ApiExtensionAiAnalyzeRoute
   LSlugVitrinePropertyIdRoute: typeof LSlugVitrinePropertyIdRoute
 }
 
@@ -457,6 +587,13 @@ declare module '@tanstack/react-router' {
       path: '/l/$slug'
       fullPath: '/l/$slug'
       preLoaderRoute: typeof LSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/property-images': {
+      id: '/api/property-images'
+      path: '/api/property-images'
+      fullPath: '/api/property-images'
+      preLoaderRoute: typeof ApiPropertyImagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/usuarios': {
@@ -620,6 +757,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/extension/properties': {
+      id: '/api/extension/properties'
+      path: '/api/extension/properties'
+      fullPath: '/api/extension/properties'
+      preLoaderRoute: typeof ApiExtensionPropertiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/me': {
+      id: '/api/extension/me'
+      path: '/api/extension/me'
+      fullPath: '/api/extension/me'
+      preLoaderRoute: typeof ApiExtensionMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/leads': {
+      id: '/api/extension/leads'
+      path: '/api/extension/leads'
+      fullPath: '/api/extension/leads'
+      preLoaderRoute: typeof ApiExtensionLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/auth': {
+      id: '/api/extension/auth'
+      path: '/api/extension/auth'
+      fullPath: '/api/extension/auth'
+      preLoaderRoute: typeof ApiExtensionAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/appointments': {
+      id: '/api/extension/appointments'
+      path: '/api/extension/appointments'
+      fullPath: '/api/extension/appointments'
+      preLoaderRoute: typeof ApiExtensionAppointmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/corretores/$userId': {
       id: '/admin/corretores/$userId'
       path: '/corretores/$userId'
@@ -640,6 +812,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/l/$slug/vitrine/$propertyId'
       preLoaderRoute: typeof LSlugVitrinePropertyIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/leads/$id': {
+      id: '/api/extension/leads/$id'
+      path: '/$id'
+      fullPath: '/api/extension/leads/$id'
+      preLoaderRoute: typeof ApiExtensionLeadsIdRouteImport
+      parentRoute: typeof ApiExtensionLeadsRoute
+    }
+    '/api/extension/ai/analyze': {
+      id: '/api/extension/ai/analyze'
+      path: '/api/extension/ai/analyze'
+      fullPath: '/api/extension/ai/analyze'
+      preLoaderRoute: typeof ApiExtensionAiAnalyzeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/leads/by-phone/$phone': {
+      id: '/api/extension/leads/by-phone/$phone'
+      path: '/by-phone/$phone'
+      fullPath: '/api/extension/leads/by-phone/$phone'
+      preLoaderRoute: typeof ApiExtensionLeadsByPhonePhoneRouteImport
+      parentRoute: typeof ApiExtensionLeadsRoute
+    }
+    '/api/extension/leads/$id/activity': {
+      id: '/api/extension/leads/$id/activity'
+      path: '/activity'
+      fullPath: '/api/extension/leads/$id/activity'
+      preLoaderRoute: typeof ApiExtensionLeadsIdActivityRouteImport
+      parentRoute: typeof ApiExtensionLeadsIdRoute
     }
   }
 }
@@ -718,14 +918,45 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface ApiExtensionLeadsIdRouteChildren {
+  ApiExtensionLeadsIdActivityRoute: typeof ApiExtensionLeadsIdActivityRoute
+}
+
+const ApiExtensionLeadsIdRouteChildren: ApiExtensionLeadsIdRouteChildren = {
+  ApiExtensionLeadsIdActivityRoute: ApiExtensionLeadsIdActivityRoute,
+}
+
+const ApiExtensionLeadsIdRouteWithChildren =
+  ApiExtensionLeadsIdRoute._addFileChildren(ApiExtensionLeadsIdRouteChildren)
+
+interface ApiExtensionLeadsRouteChildren {
+  ApiExtensionLeadsIdRoute: typeof ApiExtensionLeadsIdRouteWithChildren
+  ApiExtensionLeadsByPhonePhoneRoute: typeof ApiExtensionLeadsByPhonePhoneRoute
+}
+
+const ApiExtensionLeadsRouteChildren: ApiExtensionLeadsRouteChildren = {
+  ApiExtensionLeadsIdRoute: ApiExtensionLeadsIdRouteWithChildren,
+  ApiExtensionLeadsByPhonePhoneRoute: ApiExtensionLeadsByPhonePhoneRoute,
+}
+
+const ApiExtensionLeadsRouteWithChildren =
+  ApiExtensionLeadsRoute._addFileChildren(ApiExtensionLeadsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPropertyImagesRoute: ApiPropertyImagesRoute,
   LSlugRoute: LSlugRoute,
+  ApiExtensionAppointmentsRoute: ApiExtensionAppointmentsRoute,
+  ApiExtensionAuthRoute: ApiExtensionAuthRoute,
+  ApiExtensionLeadsRoute: ApiExtensionLeadsRouteWithChildren,
+  ApiExtensionMeRoute: ApiExtensionMeRoute,
+  ApiExtensionPropertiesRoute: ApiExtensionPropertiesRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   LSlugVitrineRoute: LSlugVitrineRoute,
+  ApiExtensionAiAnalyzeRoute: ApiExtensionAiAnalyzeRoute,
   LSlugVitrinePropertyIdRoute: LSlugVitrinePropertyIdRoute,
 }
 export const routeTree = rootRouteImport

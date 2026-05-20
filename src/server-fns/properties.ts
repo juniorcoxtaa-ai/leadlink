@@ -5,6 +5,12 @@ import { properties, user, meuLinkConfigs, organizations, plans } from "@/db/sch
 import { eq, desc, inArray, and, count, ilike, or } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { assertCanCreateProperty } from "@/lib/plans";
+import {
+  getMainImage,
+  normalizePropertyImagePayload,
+  normalizePropertyImages,
+  sanitizePropertyListItem,
+} from "@/lib/property-images";
 
 async function requireSession() {
   const request = getRequest();
@@ -61,9 +67,6 @@ export const getProperties = createServerFn({ method: "GET" }).handler(async ():
       parking: properties.parking,
       neighborhood: properties.neighborhood,
       city: properties.city,
-      state: properties.state,
-      description: properties.description,
-      features: properties.features,
       brokerId: properties.brokerId,
       image: properties.image,
       images: properties.images,
@@ -76,15 +79,15 @@ export const getProperties = createServerFn({ method: "GET" }).handler(async ():
     })
     .from(properties)
     .leftJoin(user, eq(properties.brokerId, user.id));
-  const result = isAdmin
-    ? await db.select().from(properties).orderBy(desc(properties.createdAt))
-    : await db
-        .select()
-        .from(properties)
-        .where(eq(properties.brokerId, session.user.id))
-        .orderBy(desc(properties.createdAt));
 
-  return (isAdmin ? rows : result) as any;
+  const visibleRows = isAdmin ? rows : rows.filter((row) => row.brokerId === session.user.id);
+  return visibleRows
+    .sort((a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt)))
+    .map((row) => ({
+      ...row,
+      image: getMainImage(row),
+      images: undefined,
+    })) as any;
 });
 
 type CreatePropertyInput = {
@@ -120,6 +123,14 @@ type UpdatePropertyInput = Partial<CreatePropertyInput> & {
 };
 
 export function propertyUpdateValues(data: Partial<CreatePropertyInput>) {
+  const hasImagePayload = "image" in data || "images" in data;
+  const media = hasImagePayload
+    ? normalizePropertyImagePayload({
+        image: data.image,
+        images: data.images,
+      })
+    : null;
+
   return {
     ...(typeof data.title === "string" ? { title: data.title.trim() } : {}),
     ...(typeof data.type === "string" ? { type: data.type.trim() } : {}),
@@ -139,10 +150,11 @@ export function propertyUpdateValues(data: Partial<CreatePropertyInput>) {
     ...(typeof data.parking === "number" ? { parking: Math.round(data.parking) } : {}),
     ...(typeof data.neighborhood === "string" ? { neighborhood: data.neighborhood.trim() } : {}),
     ...(typeof data.city === "string" ? { city: data.city.trim() } : {}),
-    ...(typeof data.image === "string" ? { image: data.image.trim() || null } : {}),
-    ...(Array.isArray(data.images) ? { images: data.images } : {}),
+    ...(media ? { image: media.image, images: media.images } : {}),
     ...(typeof data.highlight === "string" ? { highlight: data.highlight.trim() || null } : {}),
-    ...(typeof data.description === "string" ? { description: data.description.trim() || null } : {}),
+    ...(typeof data.description === "string"
+      ? { description: data.description.trim() || null }
+      : {}),
     ...(data.features && typeof data.features === "object" ? { features: data.features } : {}),
   };
 }
@@ -180,10 +192,21 @@ const _createProperty = createServerFn({ method: "POST" }).handler(async (ctx): 
   if (!isAdmin) {
     assertCanCreateProperty(brokerRow as any, Number(countRow?.count ?? 0));
   }
+
   const code = data.code || slugifyCode(data.title);
+  const media = normalizePropertyImagePayload({
+    image: data.image,
+    images: data.images,
+  });
   const [prop] = await db
     .insert(properties)
-    .values({ ...data, code, brokerId, status: data.status || "Disponível" })
+    .values({
+      ...data,
+      ...media,
+      code,
+      brokerId,
+      status: data.status || "Disponível",
+    })
     .returning();
   return prop as any;
 });
@@ -242,6 +265,7 @@ const _searchProperties = createServerFn({ method: "GET" }).handler(async (ctx):
       city: properties.city,
       status: properties.status,
       image: properties.image,
+      images: properties.images,
     })
     .from(properties)
     .where(
@@ -257,23 +281,73 @@ const _searchProperties = createServerFn({ method: "GET" }).handler(async (ctx):
     )
     .orderBy(desc(properties.createdAt))
     .limit(8);
-  return rows as any;
+  return rows.map((row) => ({ ...row, image: getMainImage(row), images: undefined })) as any;
 });
 
 export const searchProperties = _searchProperties as unknown as (opts: {
   data: string;
 }) => ReturnType<typeof _searchProperties>;
 
+const _getPropertyById = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
+  const id = String(ctx.data ?? "");
+  const session = await requireSession();
+  await requirePropertyOwnership(id, session);
+  const [prop] = await db.select().from(properties).where(eq(properties.id, id)).limit(1);
+  if (!prop) return null;
+  const mainImage = getMainImage(prop);
+  return {
+    ...prop,
+    image: mainImage,
+    images: normalizePropertyImages(prop.images).filter((value) => value !== mainImage),
+  } as any;
+});
+
+export const getPropertyById = _getPropertyById as unknown as (opts: {
+  data: string;
+}) => ReturnType<typeof _getPropertyById>;
+
 const _getPropertiesByIds = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
   const ids = ctx.data as unknown as string[];
   if (!ids || !ids.length) return [];
-  const rows = await db.select().from(properties).where(inArray(properties.id, ids));
-  return rows as any;
+  const rows = await db
+    .select({
+      id: properties.id,
+      code: properties.code,
+      title: properties.title,
+      type: properties.type,
+      businessType: properties.businessType,
+      status: properties.status,
+      price: properties.price,
+      area: properties.area,
+      bedrooms: properties.bedrooms,
+      bathrooms: properties.bathrooms,
+      parking: properties.parking,
+      neighborhood: properties.neighborhood,
+      city: properties.city,
+      image: properties.image,
+      images: properties.images,
+    })
+    .from(properties)
+    .where(inArray(properties.id, ids));
+  return rows.map((row) => sanitizePropertyListItem(row)) as any;
 });
 
 export const getPropertiesByIds = _getPropertiesByIds as unknown as (opts: {
   data: string[];
 }) => ReturnType<typeof _getPropertiesByIds>;
+
+function buildPublicPropertyDetail(prop: {
+  image: unknown;
+  images: unknown;
+  [key: string]: unknown;
+}) {
+  const mainImage = getMainImage(prop);
+  return {
+    ...prop,
+    image: mainImage,
+    images: normalizePropertyImages(prop.images).filter((value) => value !== mainImage),
+  };
+}
 
 export async function getPropertyPublicBySlug(slug: string, propertyId: string) {
   const [config] = await db
@@ -315,7 +389,7 @@ export async function getPropertyPublicBySlug(slug: string, propertyId: string) 
         eq(properties.status, "Disponível"),
       ),
     );
-  return (prop as any) ?? null;
+  return prop ? (buildPublicPropertyDetail(prop) as any) : null;
 }
 
 const _getPropertyPublic = createServerFn({ method: "GET" }).handler(async (ctx): Promise<any> => {
@@ -348,7 +422,7 @@ const _getPropertyPublic = createServerFn({ method: "GET" }).handler(async (ctx)
     })
     .from(properties)
     .where(and(eq(properties.id, id), eq(properties.status, "Disponível")));
-  return (prop as any) ?? null;
+  return prop ? (buildPublicPropertyDetail(prop) as any) : null;
 });
 
 export const getPropertyPublic = _getPropertyPublic as unknown as (opts: {
@@ -358,11 +432,14 @@ export const getPropertyPublic = _getPropertyPublic as unknown as (opts: {
 const _getPropertiesBySlug = createServerFn({ method: "GET" }).handler(
   async (ctx): Promise<any> => {
     const slug = ctx.data as unknown as string;
+    const routeStart = Date.now();
     const [config] = await db
       .select({ userId: meuLinkConfigs.userId })
       .from(meuLinkConfigs)
       .where(eq(meuLinkConfigs.slug, slug));
     if (!config?.userId) return [];
+
+    const queryStart = Date.now();
     const rows = await db
       .select({
         id: properties.id,
@@ -372,17 +449,12 @@ const _getPropertiesBySlug = createServerFn({ method: "GET" }).handler(
         businessType: properties.businessType,
         status: properties.status,
         price: properties.price,
-        condoValue: properties.condoValue,
-        iptuValue: properties.iptuValue,
         area: properties.area,
         bedrooms: properties.bedrooms,
         bathrooms: properties.bathrooms,
         parking: properties.parking,
         neighborhood: properties.neighborhood,
         city: properties.city,
-        state: properties.state,
-        description: properties.description,
-        features: properties.features,
         image: properties.image,
         images: properties.images,
         highlight: properties.highlight,
@@ -390,7 +462,22 @@ const _getPropertiesBySlug = createServerFn({ method: "GET" }).handler(
       .from(properties)
       .where(and(eq(properties.brokerId, config.userId), eq(properties.status, "Disponível")))
       .orderBy(desc(properties.createdAt));
-    return rows as any;
+
+    const sanitized = rows.map((row) => sanitizePropertyListItem(row));
+
+    if (process.env.NODE_ENV !== "production") {
+      const payloadBytes = Buffer.byteLength(JSON.stringify(sanitized), "utf8");
+      console.info("[LeadLink][vitrine] property-list payload", {
+        slug,
+        properties: sanitized.length,
+        images: sanitized.filter((row) => row.mainImage).length,
+        payloadKB: Math.round(payloadBytes / 1024),
+        queryMs: Date.now() - queryStart,
+        totalMs: Date.now() - routeStart,
+      });
+    }
+
+    return sanitized as any;
   },
 );
 

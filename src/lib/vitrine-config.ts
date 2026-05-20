@@ -1,4 +1,11 @@
-export const VITRINE_ACCENT_COLORS = ["navy", "emerald", "gold", "rose", "violet", "slate"] as const;
+export const VITRINE_ACCENT_COLORS = [
+  "navy",
+  "emerald",
+  "gold",
+  "rose",
+  "violet",
+  "slate",
+] as const;
 
 export type VitrineAccentColor = (typeof VITRINE_ACCENT_COLORS)[number];
 
@@ -21,11 +28,21 @@ export const VITRINE_COLOR_VALUES: Record<VitrineAccentColor, string> = {
   slate: "oklch(0.38 0.02 260)",
 };
 
-export function normalizeVitrineConfig(value: unknown, fallback: Partial<VitrineConfig> = {}): VitrineConfig {
-  const input = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-  const coverUrl = typeof input.coverUrl === "string" ? input.coverUrl.trim() : fallback.coverUrl || "";
+export function normalizeVitrineConfig(
+  value: unknown,
+  fallback: Partial<VitrineConfig> = {},
+): VitrineConfig {
+  const input =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const rawCoverUrl =
+    typeof input.coverUrl === "string" ? input.coverUrl.trim() : fallback.coverUrl || "";
+  const coverUrl = /^data:/i.test(rawCoverUrl) ? fallback.coverUrl || "" : rawCoverUrl;
   const accentCandidate =
-    typeof input.accentColor === "string" ? input.accentColor.trim() : fallback.accentColor || "navy";
+    typeof input.accentColor === "string"
+      ? input.accentColor.trim()
+      : fallback.accentColor || "navy";
   const accentColor = VITRINE_ACCENT_COLORS.includes(accentCandidate as VitrineAccentColor)
     ? (accentCandidate as VitrineAccentColor)
     : "navy";

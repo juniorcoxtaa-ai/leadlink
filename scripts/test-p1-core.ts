@@ -20,7 +20,7 @@ const vitrine = normalizeVitrineConfig({
   coverUrl: "  data:image/jpeg;base64,abc  ",
   accentColor: "violet",
 });
-assert.equal(vitrine.coverUrl, "data:image/jpeg;base64,abc");
+assert.equal(vitrine.coverUrl, "");
 assert.equal(vitrine.accentColor, "violet");
 assert.equal(normalizeVitrineConfig({ accentColor: "invalid" }).accentColor, "navy");
 assert.ok(VITRINE_COLOR_VALUES.navy);

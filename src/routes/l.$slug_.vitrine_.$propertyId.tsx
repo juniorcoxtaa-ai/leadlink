@@ -228,6 +228,8 @@ function PropertyDetail() {
               <img
                 src={safeSrc(gallery[active])}
                 alt={repairText(p.title)}
+                width={1600}
+                height={1200}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
               />
             ) : (
@@ -287,8 +289,11 @@ function PropertyDetail() {
                     }`}
                   >
                     <img
-                      src={img}
+                      src={safeSrc(img)}
                       alt=""
+                      loading="lazy"
+                      width={640}
+                      height={480}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     {i === 3 && gallery.length > 5 && (

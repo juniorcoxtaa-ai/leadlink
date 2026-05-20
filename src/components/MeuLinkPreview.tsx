@@ -54,7 +54,8 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
   const radius = BTN_RADIUS[cfg.btnShape];
   const fontFamily = FONT_FAMILIES[cfg.font].family;
 
-  const hasBgImage = Boolean(safeSrc(cfg.bgImage));
+  const bgImageSrc = safeSrc(cfg.bgImage);
+  const hasBgImage = Boolean(bgImageSrc);
   const preset = cfg.bgStyle !== "image" ? BG_PRESETS[cfg.bgStyle] : null;
   const isImageStyle = cfg.bgStyle === "image";
   const isDark = hasBgImage || isImageStyle || (preset?.isDark ?? false);
@@ -63,7 +64,9 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
   const surfaceText = isDark ? "text-white" : "text-foreground";
 
   const bgStyle: React.CSSProperties =
-    !hasBgImage && !isImageStyle ? { background: preset?.preview } : { background: preset?.preview };
+    !hasBgImage && !isImageStyle
+      ? { background: preset?.preview }
+      : { background: preset?.preview };
 
   return (
     <div
@@ -76,13 +79,17 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
             style={{
-              backgroundImage: `url(${cfg.bgImage})`,
+              backgroundImage: `url(${bgImageSrc})`,
               filter: "blur(2px) saturate(1.1)",
             }}
             aria-hidden
           />
           {preset && (
-            <div className="absolute inset-0 opacity-70 mix-blend-multiply" style={{ background: preset.preview }} aria-hidden />
+            <div
+              className="absolute inset-0 opacity-70 mix-blend-multiply"
+              style={{ background: preset.preview }}
+              aria-hidden
+            />
           )}
           <div
             className="absolute inset-0"
@@ -106,8 +113,7 @@ export function MeuLinkPreview({ cfg, fullScreen, featuredProperties = [] }: Pro
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "linear-gradient(180deg, rgba(15,27,45,0.72) 0%, rgba(15,27,45,0.92) 100%)",
+            background: "linear-gradient(180deg, rgba(15,27,45,0.72) 0%, rgba(15,27,45,0.92) 100%)",
           }}
           aria-hidden
         />

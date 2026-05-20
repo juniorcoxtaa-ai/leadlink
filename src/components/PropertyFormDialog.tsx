@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { parsePropertyText } from "@/lib/propertyTextParser";
 import { createProperty, updateProperty } from "@/server-fns/properties";
+import { uploadPropertyImage } from "@/lib/property-storage";
 
 type Props = {
   open: boolean;
@@ -28,6 +29,7 @@ type LocalImage = {
   file?: File;
   url: string;
   kind: "cover" | "gallery";
+  previewUrl?: string;
 };
 
 const MAX_IMAGES = 10;
@@ -154,13 +156,8 @@ function featureSummary(features: Record<string, boolean>) {
   return featureLabels.filter(([key]) => features[key]).map(([, label]) => label);
 }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Falha ao ler imagem"));
-    reader.readAsDataURL(file);
-  });
+function createPreviewUrl(file: File) {
+  return URL.createObjectURL(file);
 }
 
 function isAcceptedImage(file: File) {
@@ -231,7 +228,20 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
   const isEditing = Boolean(property?.id);
 
   useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      galleryPreviews.forEach((img) => {
+        if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+      });
+    };
+  }, [coverPreview, galleryPreviews]);
+
+  useEffect(() => {
     if (!open) {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      galleryPreviews.forEach((img) => {
+        if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+      });
       setForm(initialForm);
       setQuickText("");
       setSubmitting(false);
@@ -244,6 +254,10 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
 
   useEffect(() => {
     if (!open) return;
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    galleryPreviews.forEach((img) => {
+      if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+    });
     setForm(propertyToForm(property));
     setQuickText("");
     setSubmitting(false);
@@ -355,9 +369,9 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
       toast.error("Cada imagem deve ter no máximo 5MB");
       return;
     }
-    const url = await fileToDataUrl(file);
+    const url = createPreviewUrl(file);
     setCoverPreview(url);
-    update("image", url);
+    update("image", "");
   };
 
   const addGalleryFiles = async (files: FileList | null) => {
@@ -378,11 +392,13 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
         toast.error(`Arquivo "${file.name}" excede 5MB`);
         continue;
       }
+      const previewUrl = createPreviewUrl(file);
       accepted.push({
         id: `${file.name}-${crypto.randomUUID()}`,
         file,
-        url: await fileToDataUrl(file),
+        url: previewUrl,
         kind: "gallery",
+        previewUrl,
       });
     }
     if (accepted.length) {
@@ -393,13 +409,19 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
   };
 
   const removeCover = () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
     setCoverPreview(null);
     update("image", "");
     if (coverInputRef.current) coverInputRef.current.value = "";
   };
 
   const removeGalleryImage = (id: string) => {
-    setGalleryPreviews((prev) => prev.filter((img) => img.id !== id));
+    setGalleryPreviews((prev) => {
+      const found = prev.find((img) => img.id === id);
+      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
+      if (found && !found.previewUrl && found.file) URL.revokeObjectURL(found.url);
+      return prev.filter((img) => img.id !== id);
+    });
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
@@ -416,7 +438,10 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
     });
   };
 
-  const allGalleryUrls = useMemo(() => galleryPreviews.map((img) => img.url), [galleryPreviews]);
+  const persistedGalleryUrls = useMemo(
+    () => galleryPreviews.filter((img) => !img.file).map((img) => img.url),
+    [galleryPreviews],
+  );
 
   const submit = async () => {
     if (submitting) return;
@@ -435,6 +460,15 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
 
     setSubmitting(true);
     try {
+      const coverUrl =
+        coverPreview && coverInputRef.current?.files?.[0]
+          ? await uploadPropertyImage(coverInputRef.current.files[0])
+          : form.image.trim() || undefined;
+      const uploadedGalleryUrls = await Promise.all(
+        galleryPreviews
+          .filter((img) => img.file)
+          .map((img) => uploadPropertyImage(img.file as File)),
+      );
       const payload = {
         title: form.title.trim(),
         type: form.type.trim(),
@@ -454,8 +488,8 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
         neighborhood: form.neighborhood.trim(),
         city: form.city.trim(),
         state: form.state.trim(),
-        image: coverPreview || form.image.trim() || undefined,
-        images: allGalleryUrls,
+        image: coverUrl,
+        images: [...persistedGalleryUrls, ...uploadedGalleryUrls],
         highlight: form.highlight.trim() || undefined,
         description: form.description.trim() || undefined,
         features: {
@@ -470,6 +504,12 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
         ? await updateProperty({ data: { id: String(property?.id), ...payload } })
         : await createProperty({ data: payload });
 
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      galleryPreviews.forEach((img) => {
+        if (img.file) URL.revokeObjectURL(img.url);
+      });
+      setCoverPreview(null);
+      setGalleryPreviews([]);
       if (isEditing) onSaved?.(savedProperty);
       else onCreated?.(savedProperty);
       toast.success(isEditing ? "Imóvel atualizado com sucesso" : "Imóvel cadastrado com sucesso");

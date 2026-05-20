@@ -1,6 +1,21 @@
-import { saveMeuLinkConfig, getMeuLinkConfig, loadMeuLinkConfig, getMySlug } from "@/server-fns/meu-link";
-import { DEFAULT_QUIZ_BLOCKS, sanitizeBlockQuestions, type QuizBlocks, type QuizQuestion } from "@/lib/quiz-blocks";
-import { DEFAULT_VITRINE_CONFIG, normalizeVitrineConfig, type VitrineConfig } from "@/lib/vitrine-config";
+import {
+  saveMeuLinkConfig,
+  getMeuLinkConfig,
+  loadMeuLinkConfig,
+  getMySlug,
+} from "@/server-fns/meu-link";
+import {
+  DEFAULT_QUIZ_BLOCKS,
+  sanitizeBlockQuestions,
+  type QuizBlocks,
+  type QuizQuestion,
+} from "@/lib/quiz-blocks";
+import {
+  DEFAULT_VITRINE_CONFIG,
+  normalizeVitrineConfig,
+  type VitrineConfig,
+} from "@/lib/vitrine-config";
+import { uploadPropertyImage } from "@/lib/property-storage";
 
 export type Stat = { id: string; label: string; value: string };
 export type LinkItem = { id: string; label: string; url: string; enabled: boolean };
@@ -26,14 +41,7 @@ export type BgStyle =
   | "sunset"
   | "aurora"
   | "mesh";
-export type Accent =
-  | "emerald"
-  | "navy"
-  | "gold"
-  | "rose"
-  | "violet"
-  | "charcoal"
-  | "sand";
+export type Accent = "emerald" | "navy" | "gold" | "rose" | "violet" | "charcoal" | "sand";
 export type FontStyle = "editorial" | "modern" | "mono";
 export type BtnShape = "pill" | "rounded" | "square";
 
@@ -44,11 +52,7 @@ const FIXED_LINK_LABELS = new Set([
   "imoveis em destaque",
 ]);
 
-const FIXED_LINK_HREF_PATTERNS = [
-  /^\/imoveis\/?$/i,
-  /^\/quiz\/?$/i,
-  /^\/l\/[^/]+\/vitrine\/?$/i,
-];
+const FIXED_LINK_HREF_PATTERNS = [/^\/imoveis\/?$/i, /^\/quiz\/?$/i, /^\/l\/[^/]+\/vitrine\/?$/i];
 
 export type MeuLinkConfig = {
   name: string;
@@ -76,20 +80,99 @@ export type MeuLinkConfig = {
 };
 
 export const MANDATORY: Question[] = [
-  { id: "q-name", label: "Nome completo", placeholder: "Como podemos te chamar?", type: "text", required: true, locked: true, enabled: true },
-  { id: "q-phone", label: "Telefone / WhatsApp", placeholder: "(11) 99999-0000", type: "tel", required: true, locked: true, enabled: true },
-  { id: "q-city", label: "Cidade onde quer morar", placeholder: "Ex.: São Paulo - Pinheiros", type: "text", required: true, locked: true, enabled: true },
+  {
+    id: "q-name",
+    label: "Nome completo",
+    placeholder: "Como podemos te chamar?",
+    type: "text",
+    required: true,
+    locked: true,
+    enabled: true,
+  },
+  {
+    id: "q-phone",
+    label: "Telefone / WhatsApp",
+    placeholder: "(11) 99999-0000",
+    type: "tel",
+    required: true,
+    locked: true,
+    enabled: true,
+  },
+  {
+    id: "q-city",
+    label: "Cidade onde quer morar",
+    placeholder: "Ex.: São Paulo - Pinheiros",
+    type: "text",
+    required: true,
+    locked: true,
+    enabled: true,
+  },
 ];
 
 export const DEFAULT_OPTIONAL: Question[] = [
-  { id: "q-goal", label: "Você quer comprar, alugar ou investir?", type: "select", required: false, enabled: true, options: ["Comprar", "Alugar", "Investir"] },
-  { id: "q-type", label: "Tipo de imóvel preferido", type: "select", required: false, enabled: true, options: ["Apartamento", "Casa", "Cobertura", "Studio", "Comercial"] },
-  { id: "q-budget", label: "Faixa de investimento", type: "select", required: false, enabled: true, options: ["Até R$ 500 mil", "R$ 500 mil – R$ 1 mi", "R$ 1 mi – R$ 3 mi", "Acima de R$ 3 mi"] },
-  { id: "q-bedrooms", label: "Quantos dormitórios?", type: "select", required: false, enabled: true, options: ["1", "2", "3", "4 ou mais"] },
-  { id: "q-when", label: "Quando pretende mudar?", type: "select", required: false, enabled: true, options: ["Agora", "Em até 3 meses", "Em até 6 meses", "Sem pressa"] },
-  { id: "q-financing", label: "Vai usar financiamento?", type: "select", required: false, enabled: false, options: ["Sim", "Não", "Talvez"] },
-  { id: "q-fgts", label: "Pretende usar FGTS?", type: "select", required: false, enabled: false, options: ["Sim", "Não"] },
-  { id: "q-notes", label: "Algo importante que devemos saber?", type: "text", required: false, enabled: false },
+  {
+    id: "q-goal",
+    label: "Você quer comprar, alugar ou investir?",
+    type: "select",
+    required: false,
+    enabled: true,
+    options: ["Comprar", "Alugar", "Investir"],
+  },
+  {
+    id: "q-type",
+    label: "Tipo de imóvel preferido",
+    type: "select",
+    required: false,
+    enabled: true,
+    options: ["Apartamento", "Casa", "Cobertura", "Studio", "Comercial"],
+  },
+  {
+    id: "q-budget",
+    label: "Faixa de investimento",
+    type: "select",
+    required: false,
+    enabled: true,
+    options: ["Até R$ 500 mil", "R$ 500 mil – R$ 1 mi", "R$ 1 mi – R$ 3 mi", "Acima de R$ 3 mi"],
+  },
+  {
+    id: "q-bedrooms",
+    label: "Quantos dormitórios?",
+    type: "select",
+    required: false,
+    enabled: true,
+    options: ["1", "2", "3", "4 ou mais"],
+  },
+  {
+    id: "q-when",
+    label: "Quando pretende mudar?",
+    type: "select",
+    required: false,
+    enabled: true,
+    options: ["Agora", "Em até 3 meses", "Em até 6 meses", "Sem pressa"],
+  },
+  {
+    id: "q-financing",
+    label: "Vai usar financiamento?",
+    type: "select",
+    required: false,
+    enabled: false,
+    options: ["Sim", "Não", "Talvez"],
+  },
+  {
+    id: "q-fgts",
+    label: "Pretende usar FGTS?",
+    type: "select",
+    required: false,
+    enabled: false,
+    options: ["Sim", "Não"],
+  },
+  {
+    id: "q-notes",
+    label: "Algo importante que devemos saber?",
+    type: "text",
+    required: false,
+    enabled: false,
+  },
 ];
 
 export const DEFAULT_CONFIG: MeuLinkConfig = {
@@ -153,7 +236,9 @@ export const EMPTY_MEU_LINK_CONFIG: MeuLinkConfig = {
 export function sanitizeCustomLinks(links: LinkItem[] | undefined, slug = ""): LinkItem[] {
   const normalizedSlug = slug.trim().toLowerCase();
   return (links ?? []).filter((link) => {
-    const label = String(link.label ?? "").trim().toLowerCase();
+    const label = String(link.label ?? "")
+      .trim()
+      .toLowerCase();
     const normalizedLabel = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (FIXED_LINK_LABELS.has(normalizedLabel)) return false;
     const href = String(link.url ?? "").trim();
@@ -172,32 +257,53 @@ export const ACCENT_TOKENS: Record<
   { bg: string; fg: string; soft: string; ring: string; label: string }
 > = {
   emerald: {
-    bg: "oklch(0.45 0.08 175)", fg: "#fff", soft: "oklch(0.45 0.08 175 / 0.18)",
-    ring: "oklch(0.45 0.08 175 / 0.4)", label: "Esmeralda",
+    bg: "oklch(0.45 0.08 175)",
+    fg: "#fff",
+    soft: "oklch(0.45 0.08 175 / 0.18)",
+    ring: "oklch(0.45 0.08 175 / 0.4)",
+    label: "Esmeralda",
   },
   navy: {
-    bg: "oklch(0.235 0.04 255)", fg: "#fff", soft: "oklch(0.235 0.04 255 / 0.18)",
-    ring: "oklch(0.235 0.04 255 / 0.4)", label: "Navy",
+    bg: "oklch(0.235 0.04 255)",
+    fg: "#fff",
+    soft: "oklch(0.235 0.04 255 / 0.18)",
+    ring: "oklch(0.235 0.04 255 / 0.4)",
+    label: "Navy",
   },
   gold: {
-    bg: "oklch(0.7 0.09 75)", fg: "oklch(0.235 0.04 255)", soft: "oklch(0.7 0.09 75 / 0.2)",
-    ring: "oklch(0.7 0.09 75 / 0.45)", label: "Ouro",
+    bg: "oklch(0.7 0.09 75)",
+    fg: "oklch(0.235 0.04 255)",
+    soft: "oklch(0.7 0.09 75 / 0.2)",
+    ring: "oklch(0.7 0.09 75 / 0.45)",
+    label: "Ouro",
   },
   rose: {
-    bg: "oklch(0.62 0.16 15)", fg: "#fff", soft: "oklch(0.62 0.16 15 / 0.2)",
-    ring: "oklch(0.62 0.16 15 / 0.4)", label: "Rosê",
+    bg: "oklch(0.62 0.16 15)",
+    fg: "#fff",
+    soft: "oklch(0.62 0.16 15 / 0.2)",
+    ring: "oklch(0.62 0.16 15 / 0.4)",
+    label: "Rosê",
   },
   violet: {
-    bg: "oklch(0.45 0.16 295)", fg: "#fff", soft: "oklch(0.45 0.16 295 / 0.2)",
-    ring: "oklch(0.45 0.16 295 / 0.4)", label: "Violeta",
+    bg: "oklch(0.45 0.16 295)",
+    fg: "#fff",
+    soft: "oklch(0.45 0.16 295 / 0.2)",
+    ring: "oklch(0.45 0.16 295 / 0.4)",
+    label: "Violeta",
   },
   charcoal: {
-    bg: "oklch(0.22 0.005 260)", fg: "#fff", soft: "oklch(0.22 0.005 260 / 0.2)",
-    ring: "oklch(0.22 0.005 260 / 0.4)", label: "Carvão",
+    bg: "oklch(0.22 0.005 260)",
+    fg: "#fff",
+    soft: "oklch(0.22 0.005 260 / 0.2)",
+    ring: "oklch(0.22 0.005 260 / 0.4)",
+    label: "Carvão",
   },
   sand: {
-    bg: "oklch(0.78 0.06 70)", fg: "oklch(0.235 0.04 255)", soft: "oklch(0.78 0.06 70 / 0.25)",
-    ring: "oklch(0.78 0.06 70 / 0.45)", label: "Areia",
+    bg: "oklch(0.78 0.06 70)",
+    fg: "oklch(0.235 0.04 255)",
+    soft: "oklch(0.78 0.06 70 / 0.25)",
+    ring: "oklch(0.78 0.06 70 / 0.45)",
+    label: "Areia",
   },
 };
 
@@ -213,8 +319,7 @@ export const BG_PRESETS: Record<
   },
   navy: {
     label: "Navy",
-    preview:
-      "linear-gradient(160deg, oklch(0.27 0.045 255), oklch(0.16 0.035 255))",
+    preview: "linear-gradient(160deg, oklch(0.27 0.045 255), oklch(0.16 0.035 255))",
     isDark: true,
   },
   gradient: {
@@ -225,8 +330,7 @@ export const BG_PRESETS: Record<
   },
   noir: {
     label: "Noir",
-    preview:
-      "radial-gradient(ellipse at 50% 0%, oklch(0.25 0.01 260), oklch(0.08 0.005 260) 80%)",
+    preview: "radial-gradient(ellipse at 50% 0%, oklch(0.25 0.01 260), oklch(0.08 0.005 260) 80%)",
     isDark: true,
   },
   sunset: {
@@ -250,8 +354,11 @@ export const BG_PRESETS: Record<
 };
 
 export const FONT_FAMILIES: Record<FontStyle, { label: string; family: string }> = {
-  editorial: { label: "Editorial (serif)", family: 'Fraunces, "Cormorant Garamond", Georgia, serif' },
-  modern: { label: "Moderno (sans)", family: 'Inter, system-ui, sans-serif' },
+  editorial: {
+    label: "Editorial (serif)",
+    family: 'Fraunces, "Cormorant Garamond", Georgia, serif',
+  },
+  modern: { label: "Moderno (sans)", family: "Inter, system-ui, sans-serif" },
   mono: { label: "Mono (técnico)", family: '"JetBrains Mono", ui-monospace, monospace' },
 };
 
@@ -333,7 +440,10 @@ export async function loadConfig(slug?: string): Promise<MeuLinkConfig> {
   }
 }
 
-export function normalizeMeuLinkConfig(data: Partial<MeuLinkConfig>, fallbackSlug = ""): MeuLinkConfig {
+export function normalizeMeuLinkConfig(
+  data: Partial<MeuLinkConfig>,
+  fallbackSlug = "",
+): MeuLinkConfig {
   const slug = data.slug?.trim() || fallbackSlug;
   return {
     ...EMPTY_MEU_LINK_CONFIG,
@@ -341,10 +451,12 @@ export function normalizeMeuLinkConfig(data: Partial<MeuLinkConfig>, fallbackSlu
     stats: data.stats ?? [],
     links: sanitizeCustomLinks(data.links ?? [], slug),
     videos: data.videos ?? [],
-    quizBlocks: sanitizeQuizBlocks(normalizeQuizBlocks(
-      (data as Partial<{ quizBlocks: QuizBlocks }>).quizBlocks,
-      (data as Partial<{ questions: QuizQuestion[] }>).questions,
-    )),
+    quizBlocks: sanitizeQuizBlocks(
+      normalizeQuizBlocks(
+        (data as Partial<{ quizBlocks: QuizBlocks }>).quizBlocks,
+        (data as Partial<{ questions: QuizQuestion[] }>).questions,
+      ),
+    ),
     featuredIds: data.featuredIds ?? [],
     vitrine: normalizeVitrineConfig(data.vitrine),
     slug,
@@ -361,7 +473,10 @@ function sanitizeQuizBlocks(blocks: QuizBlocks): QuizBlocks {
   return {
     locacao: { ...blocks.locacao, questions: sanitizeQuestions(blocks.locacao.questions) },
     compra: { ...blocks.compra, questions: sanitizeQuestions(blocks.compra.questions) },
-    investimento: { ...blocks.investimento, questions: sanitizeQuestions(blocks.investimento.questions) },
+    investimento: {
+      ...blocks.investimento,
+      questions: sanitizeQuestions(blocks.investimento.questions),
+    },
   };
 }
 
@@ -370,7 +485,8 @@ function sanitizeQuestions(questions: QuizQuestion[]): QuizQuestion[] {
     .filter((q) => q.label.trim().length > 0)
     .map((q) => ({
       ...q,
-      options: q.type === "select" ? (q.options ?? []).filter((opt) => opt.trim().length > 0) : q.options,
+      options:
+        q.type === "select" ? (q.options ?? []).filter((opt) => opt.trim().length > 0) : q.options,
     }));
 }
 
@@ -386,21 +502,14 @@ export async function uploadImage(
 ): Promise<string> {
   const { maxDim = kind === "bg" ? 1600 : 512, quality = 0.85 } = opts;
   const blob = await compressImage(file, maxDim, quality);
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+  const uploadFile = new File([blob], file.name || `${kind}.jpg`, {
+    type: blob.type || "image/jpeg",
   });
+  return uploadPropertyImage(uploadFile);
 }
 
 async function compressImage(file: File, maxDim: number, quality: number): Promise<Blob> {
-  const dataUrl: string = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+  const dataUrl = URL.createObjectURL(file);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -414,12 +523,18 @@ async function compressImage(file: File, maxDim: number, quality: number): Promi
       if (!ctx) return reject(new Error("Canvas indisponível"));
       ctx.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("Falha ao comprimir"))),
+        (b) => {
+          URL.revokeObjectURL(dataUrl);
+          return b ? resolve(b) : reject(new Error("Falha ao comprimir"));
+        },
         "image/jpeg",
         quality,
       );
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      URL.revokeObjectURL(dataUrl);
+      reject(new Error("Falha ao processar imagem"));
+    };
     img.src = dataUrl;
   });
 }

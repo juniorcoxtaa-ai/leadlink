@@ -17,7 +17,7 @@ assert.equal(buildLeadWhatsappUrl({ name: "Ana", phone: "sem telefone" }), null)
 
 assert.deepEqual(
   normalizeVitrineConfig({ coverUrl: " data:image/jpeg;base64,abc ", accentColor: "rose" }),
-  { coverUrl: "data:image/jpeg;base64,abc", accentColor: "rose" },
+  { coverUrl: "", accentColor: "rose" },
 );
 assert.equal(normalizeVitrineConfig({ accentColor: "invalid" }).accentColor, "navy");
 

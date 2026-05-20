@@ -118,7 +118,8 @@ function VitrinePage() {
   }, [cfg.featuredIds, props]);
 
   const cityRegion = cfg.city || props[0]?.city || "sua região";
-  const heroImage = cfg.vitrine?.coverUrl || featured[0]?.image || props[0]?.image;
+  const heroImage =
+    safeSrc(cfg.vitrine?.coverUrl) || safeSrc(featured[0]?.image) || safeSrc(props[0]?.image);
   const accentColor = VITRINE_COLOR_VALUES[cfg.vitrine?.accentColor || "navy"] ?? VITRINE_COLOR_VALUES.navy;
   const brokerPhone = cfg.whatsapp ? cfg.whatsapp.replace(/\D/g, "") : "";
   const whatsappHref = brokerPhone ? `https://wa.me/${brokerPhone}` : undefined;
@@ -170,6 +171,9 @@ function VitrinePage() {
               src={heroImage}
               alt=""
               aria-hidden
+              loading="eager"
+              width={1600}
+              height={900}
               className="absolute inset-0 w-full h-full object-cover scale-110"
               style={{ filter: "blur(2px) saturate(1.05)" }}
             />
@@ -400,12 +404,14 @@ function VitrinePage() {
                   <article className="relative rounded-3xl overflow-hidden bg-card border border-border/60 shadow-[0_2px_10px_-4px_rgba(15,27,45,0.08)] hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.28)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300">
                     <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
                       {safeSrc(p.image) ? (
-                        <img
-                          src={safeSrc(p.image)}
-                          alt={repairText(p.title)}
-                          loading="lazy"
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-                        />
+                    <img
+                      src={safeSrc(p.image)}
+                      alt={repairText(p.title)}
+                      loading="lazy"
+                      width={800}
+                      height={1000}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                    />
                       ) : (
                         <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
                           Sem imagem

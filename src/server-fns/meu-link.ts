@@ -50,6 +50,11 @@ function normalizeString(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+function normalizePublicImageUrl(value: unknown, fallback = "") {
+  const normalized = normalizeString(value, fallback);
+  return /^data:/i.test(normalized) ? fallback : normalized;
+}
+
 function normalizeBool(value: unknown, fallback = false) {
   if (value === true) return true;
   if (value === false || value == null) return false;
@@ -69,7 +74,9 @@ function sanitizeStats(stats: unknown, fallback: any[] = []) {
 }
 
 function sanitizeFeaturedIds(featuredIds: unknown, fallback: string[] = []) {
-  return Array.isArray(featuredIds) ? featuredIds.filter((id): id is string => typeof id === "string") : fallback;
+  return Array.isArray(featuredIds)
+    ? featuredIds.filter((id): id is string => typeof id === "string")
+    : fallback;
 }
 
 function sanitizeVideos(videos: unknown) {
@@ -100,17 +107,21 @@ function sanitizeMeuLinkConfigPayload(incoming: any, previous: any, allowPremium
     slug: normalizeString(incoming?.slug, normalizeString(base.slug)),
     verified: normalizeBool(incoming?.verified, Boolean(base.verified)),
     ctaText: normalizeString(incoming?.ctaText, normalizeString(base.ctaText)),
-    photoUrl: normalizeString(incoming?.photoUrl, normalizeString(base.photoUrl)),
+    photoUrl: normalizePublicImageUrl(incoming?.photoUrl, normalizeString(base.photoUrl)),
     accent: normalizeString(incoming?.accent, normalizeString(base.accent, "emerald")),
     bgStyle: safeBgStyle,
-    bgImage: allowPremium ? normalizeString(incoming?.bgImage, normalizeString(base.bgImage)) : "",
+    bgImage: allowPremium
+      ? normalizePublicImageUrl(incoming?.bgImage, normalizeString(base.bgImage))
+      : "",
     font: normalizeString(incoming?.font, normalizeString(base.font, "editorial")),
     btnShape: normalizeString(incoming?.btnShape, normalizeString(base.btnShape, "pill")),
     glass: normalizeBool(incoming?.glass, Boolean(base.glass)),
     stats: sanitizeStats(incoming?.stats, base.stats ?? []),
     links: sanitizeLinks(incoming?.links, base.links ?? []),
     videos: allowPremium ? sanitizeVideos(incoming?.videos) : [],
-    quizBlocks: allowPremium ? incoming?.quizBlocks ?? base.quizBlocks ?? DEFAULT_QUIZ_BLOCKS : sanitizeQuizBlocksForFree(base),
+    quizBlocks: allowPremium
+      ? (incoming?.quizBlocks ?? base.quizBlocks ?? DEFAULT_QUIZ_BLOCKS)
+      : sanitizeQuizBlocksForFree(base),
     quizIntro: normalizeString(incoming?.quizIntro, normalizeString(base.quizIntro)),
     featuredIds: sanitizeFeaturedIds(incoming?.featuredIds, base.featuredIds ?? []),
     vitrine: normalizeVitrineConfig(incoming?.vitrine, base.vitrine),
@@ -130,7 +141,9 @@ export function buildMeuLinkSaveData(params: {
   const userId = sessionUserId;
   const ownedRow = existingRow ?? null;
   const resolvedSlug =
-    normalizeString(incoming?.slug) || normalizeString(sessionSlug) || normalizeString(ownedRow?.slug);
+    normalizeString(incoming?.slug) ||
+    normalizeString(sessionSlug) ||
+    normalizeString(ownedRow?.slug);
   const slugCheck = validateSlug(resolvedSlug);
   if (!slugCheck.ok) {
     throw new Error("Configure seu endereço personalizado primeiro");
@@ -260,7 +273,9 @@ const _saveMeuLinkConfig = createServerFn({ method: "POST" }).handler(async (ctx
   return { ok: true };
 });
 
-export const saveMeuLinkConfig = _saveMeuLinkConfig as unknown as (opts: { data: { slug: string; config: unknown } }) => ReturnType<typeof _saveMeuLinkConfig>;
+export const saveMeuLinkConfig = _saveMeuLinkConfig as unknown as (opts: {
+  data: { slug: string; config: unknown };
+}) => ReturnType<typeof _saveMeuLinkConfig>;
 
 const _loadMeuLinkConfig = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
@@ -273,7 +288,9 @@ const _loadMeuLinkConfig = createServerFn({ method: "GET" }).handler(async () =>
   return row?.data ?? null;
 });
 
-export const getMeuLinkConfig = _loadMeuLinkConfig as unknown as () => ReturnType<typeof _loadMeuLinkConfig>;
+export const getMeuLinkConfig = _loadMeuLinkConfig as unknown as () => ReturnType<
+  typeof _loadMeuLinkConfig
+>;
 
 const _loadMeuLinkConfigPublic = createServerFn({ method: "GET" }).handler(async (ctx) => {
   const slug = ctx.data as unknown as string;
@@ -294,7 +311,9 @@ const _loadMeuLinkConfigPublic = createServerFn({ method: "GET" }).handler(async
   return sanitizePublicMeuLinkConfig(row.data, getEffectivePlanSlug(owner));
 });
 
-export const loadMeuLinkConfig = _loadMeuLinkConfigPublic as unknown as (opts: { data: string }) => ReturnType<typeof _loadMeuLinkConfigPublic>;
+export const loadMeuLinkConfig = _loadMeuLinkConfigPublic as unknown as (opts: {
+  data: string;
+}) => ReturnType<typeof _loadMeuLinkConfigPublic>;
 
 const _getMySlug = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
