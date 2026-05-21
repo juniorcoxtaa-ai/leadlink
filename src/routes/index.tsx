@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import leadlinkLogo from "@/assets/leadlink-logo.png";
 import heroImg from "@/assets/leadlink-hero.jpg";
-import mobileImg from "@/assets/leadlink-mobile.jpg";
+import vitrineTabletImg from "@/assets/leadlink-vitrine-tablet.png";
 import whatsappImg from "@/assets/leadlink-whatsapp.jpg";
 
 const PRELAUNCH_DATE = new Date("2026-05-25T00:00:00-03:00").getTime();
@@ -348,20 +348,29 @@ function LandingPage() {
       <section id="meu-link" className="bg-navy text-navy-foreground">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-20 md:grid-cols-2 md:items-center md:px-8 md:py-28">
           <div className="order-2 md:order-1">
-            <div className="text-xs uppercase tracking-[0.25em] text-gold">Estrutura comercial</div>
+            <div className="text-xs uppercase tracking-[0.25em] text-gold">Vitrine inteligente</div>
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-5xl">
-              Um ponto de entrada premium para sua operação comercial.
+              Vitrine Inteligente de Imóveis
             </h2>
             <p className="mt-4 max-w-xl text-navy-foreground/70 md:text-lg">
-              Portfólio, vídeo, contexto comercial e qualificação inicial em uma experiência pensada
-              para transformar visita em conversa relevante.
+              Cada corretor possui uma vitrine própria, totalmente personalizada para apresentar
+              seus imóveis de forma mais profissional, organizada e estratégica.
             </p>
-            <ul className="mt-7 space-y-3 text-sm text-navy-foreground/85">
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-navy-foreground/78 md:text-base">
+              A experiência foi criada para transformar o perfil do corretor em um verdadeiro ponto
+              de atendimento digital, reunindo imóveis, apresentação profissional, contato direto e
+              captação de leads em um único ambiente.
+            </p>
+            <ul className="mt-7 grid gap-3 text-sm text-navy-foreground/85 sm:grid-cols-2">
               {[
-                "Portfólio e apresentação comercial em uma jornada elegante",
-                "Qualificação inicial integrada ao fluxo de contato",
-                "Experiência mais clara para o visitante e para o corretor",
-                "Base preparada para atendimento e distribuição inteligente",
+                "Página exclusiva e personalizável para cada corretor",
+                "Catálogo de imóveis com visual premium e atualizado",
+                "Compartilhamento simples para Instagram, WhatsApp e anúncios",
+                "Organização inteligente por categoria, bairro e tipo de imóvel",
+                "Experiência moderna pensada para gerar mais conversas qualificadas",
+                "Estrutura preparada para tráfego pago e captação de leads",
+                "Integração direta com WhatsApp para acelerar o atendimento",
+                "Atualização contínua da vitrine conforme novos imóveis entram",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-gold" />
@@ -369,16 +378,20 @@ function LandingPage() {
                 </li>
               ))}
             </ul>
+            <p className="mt-7 max-w-2xl text-sm leading-relaxed text-navy-foreground/78 md:text-base">
+              Mais do que um catálogo, a vitrine funciona como uma extensão digital da operação
+              comercial do corretor.
+            </p>
           </div>
           <div className="relative order-1 md:order-2">
-            <div className="absolute -inset-8 -z-10 rounded-full bg-gold/10 blur-3xl" />
+            <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,_var(--gold)_24%,_transparent),_transparent_70%)] blur-3xl" />
             <img
-              src={mobileImg}
-              alt="Estrutura comercial LeadLink em um celular"
-              width={1024}
-              height={1024}
+              src={vitrineTabletImg}
+              alt="Vitrine inteligente de imóveis do LeadLink em um tablet"
+              width={1400}
+              height={1242}
               loading="lazy"
-              className="mx-auto max-w-sm rounded-3xl border border-white/10 shadow-2xl"
+              className="mx-auto w-full max-w-2xl rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_30px_90px_-30px_rgba(0,0,0,0.55)]"
             />
           </div>
         </div>
@@ -487,15 +500,6 @@ function LandingPage() {
                   Participe do Pré-Lançamento <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
               </a>
-              <Link to="/login">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 w-full border-white/20 bg-white/5 text-navy-foreground hover:bg-white/10 sm:w-auto"
-                >
-                  Fazer login
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
