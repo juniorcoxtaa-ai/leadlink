@@ -65,7 +65,7 @@ export function normalizePropertyImagePayload(input: { image?: unknown; images?:
   const images = normalizePropertyImages(input.images);
 
   assertNoLargeBase64Image(image, "image");
-  +images.forEach((value, index) => assertNoLargeBase64Image(value, `images[${index}]`));
+  images.forEach((value, index) => assertNoLargeBase64Image(value, `images[${index}]`));
 
   const filteredImages = images.filter((value) => !isBase64Image(value));
   const mainImage = image && !isBase64Image(image) ? image : (filteredImages[0] ?? null);

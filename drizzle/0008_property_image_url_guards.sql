@@ -9,8 +9,14 @@ where images is not null
 and images::text like '%data:%';
 
 alter table "properties"
+  drop constraint if exists "properties_image_no_data_url";
+
+alter table "properties"
+  drop constraint if exists "properties_images_no_data_url";
+
+alter table "properties"
   add constraint "properties_image_no_data_url"
-  check ("image" is null or "image" not like 'data:%');
+  check ("image" is null or trim("image") not like 'data:%');
 
 alter table "properties"
   add constraint "properties_images_no_data_url"

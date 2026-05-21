@@ -1,5 +1,8 @@
+import { isBase64Image } from "@/lib/property-images";
+
 export function safeSrc(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const src = value.trim();
-  return src.length > 0 ? src : undefined;
+  if (!src || isBase64Image(src)) return undefined;
+  return src;
 }

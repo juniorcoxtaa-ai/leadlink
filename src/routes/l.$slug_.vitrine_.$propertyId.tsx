@@ -234,7 +234,7 @@ function PropertyDetail() {
               />
             ) : (
               <div className="absolute inset-0 grid place-items-center bg-secondary text-muted-foreground text-xs uppercase tracking-wider">
-                Sem imagem
+                SEM IMAGEM
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-navy/40 to-transparent pointer-events-none" />
@@ -491,7 +491,7 @@ function PropertyDetail() {
                         />
                       ) : (
                         <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
-                          Sem imagem
+                          SEM IMAGEM
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/10 to-transparent" />

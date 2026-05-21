@@ -120,12 +120,16 @@ function VitrinePage() {
   const cityRegion = cfg.city || props[0]?.city || "sua região";
   const heroImage =
     safeSrc(cfg.vitrine?.coverUrl) || safeSrc(featured[0]?.image) || safeSrc(props[0]?.image);
-  const accentColor = VITRINE_COLOR_VALUES[cfg.vitrine?.accentColor || "navy"] ?? VITRINE_COLOR_VALUES.navy;
+  const accentColor =
+    VITRINE_COLOR_VALUES[cfg.vitrine?.accentColor || "navy"] ?? VITRINE_COLOR_VALUES.navy;
   const brokerPhone = cfg.whatsapp ? cfg.whatsapp.replace(/\D/g, "") : "";
   const whatsappHref = brokerPhone ? `https://wa.me/${brokerPhone}` : undefined;
 
   return (
-    <div className="min-h-screen bg-cream text-foreground antialiased" style={{ "--vitrine-accent": accentColor } as CSSProperties}>
+    <div
+      className="min-h-screen bg-cream text-foreground antialiased"
+      style={{ "--vitrine-accent": accentColor } as CSSProperties}
+    >
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-cream/75 border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/l/$slug" params={{ slug }} className="flex items-center gap-3 group min-w-0">
@@ -308,7 +312,7 @@ function VitrinePage() {
                     />
                   ) : (
                     <div className="w-full h-full bg-white/10 grid place-items-center text-white/70 text-[10px] uppercase tracking-wider">
-                      Sem imagem
+                      SEM IMAGEM
                     </div>
                   )}
                 </div>
@@ -404,17 +408,17 @@ function VitrinePage() {
                   <article className="relative rounded-3xl overflow-hidden bg-card border border-border/60 shadow-[0_2px_10px_-4px_rgba(15,27,45,0.08)] hover:shadow-[0_24px_48px_-20px_rgba(15,27,45,0.28)] hover:-translate-y-1 hover:border-navy/30 transition-all duration-300">
                     <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
                       {safeSrc(p.image) ? (
-                    <img
-                      src={safeSrc(p.image)}
-                      alt={repairText(p.title)}
-                      loading="lazy"
-                      width={800}
-                      height={1000}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-                    />
+                        <img
+                          src={safeSrc(p.image)}
+                          alt={repairText(p.title)}
+                          loading="lazy"
+                          width={800}
+                          height={1000}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                        />
                       ) : (
                         <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
-                          Sem imagem
+                          SEM IMAGEM
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/15 to-transparent" />

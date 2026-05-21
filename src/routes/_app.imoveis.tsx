@@ -203,7 +203,7 @@ function ImoveisPage() {
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
                     <ImageIcon className="h-8 w-8 mb-2 opacity-70" />
-                    <span className="text-xs uppercase tracking-wider">Sem foto</span>
+                    <span className="text-xs uppercase tracking-wider">SEM IMAGEM</span>
                   </div>
                 )}
                 <div className="absolute top-3 left-3 flex gap-2">

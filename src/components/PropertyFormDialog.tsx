@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouteContext } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,10 +27,7 @@ type Props = {
 
 type LocalImage = {
   id: string;
-  file?: File;
   url: string;
-  kind: "cover" | "gallery";
-  previewUrl?: string;
 };
 
 const MAX_IMAGES = 10;
@@ -211,43 +209,44 @@ function existingGallery(property?: Record<string, any> | null): LocalImage[] {
     .map((url, index) => ({
       id: `existing-${index}-${url}`,
       url,
-      kind: "gallery" as const,
     }));
 }
 
 export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, property }: Props) {
+  const { user } = useRouteContext({ from: "/_app", strict: false }) as {
+    user?: { id?: string };
+  };
   const [form, setForm] = useState(initialForm);
   const [quickText, setQuickText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [galleryPreviews, setGalleryPreviews] = useState<LocalImage[]>([]);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
   const lastCepRequested = useRef("");
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const isEditing = Boolean(property?.id);
+  const uploaderUserId = user?.id || String(property?.brokerId || "");
 
   useEffect(() => {
     return () => {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
-      galleryPreviews.forEach((img) => {
-        if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
-      });
     };
   }, [coverPreview, galleryPreviews]);
 
   useEffect(() => {
     if (!open) {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
-      galleryPreviews.forEach((img) => {
-        if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
-      });
       setForm(initialForm);
       setQuickText("");
       setSubmitting(false);
       setCepLoading(false);
       setCoverPreview(null);
       setGalleryPreviews([]);
+      setUploadingCover(false);
+      setUploadingGallery(false);
       lastCepRequested.current = "";
     }
   }, [open]);
@@ -255,15 +254,14 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
   useEffect(() => {
     if (!open) return;
     if (coverPreview) URL.revokeObjectURL(coverPreview);
-    galleryPreviews.forEach((img) => {
-      if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
-    });
     setForm(propertyToForm(property));
     setQuickText("");
     setSubmitting(false);
     setCepLoading(false);
     setCoverPreview(null);
     setGalleryPreviews(existingGallery(property));
+    setUploadingCover(false);
+    setUploadingGallery(false);
     lastCepRequested.current = property?.cep ? onlyDigits(String(property.cep)) : "";
   }, [open, property]);
 
@@ -369,59 +367,86 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
       toast.error("Cada imagem deve ter no máximo 5MB");
       return;
     }
-    const url = createPreviewUrl(file);
-    setCoverPreview(url);
-    update("image", "");
+    const previewUrl = createPreviewUrl(file);
+    setCoverPreview(previewUrl);
+    setUploadingCover(true);
+    try {
+      if (!uploaderUserId) throw new Error("Usuário não identificado para upload.");
+      const url = await uploadPropertyImage(file, {
+        userId: uploaderUserId,
+        propertyId: property?.id ? String(property.id) : null,
+        isPrimary: true,
+      });
+      setForm((prev) => ({ ...prev, image: url }));
+      toast.success("Capa enviada com sucesso.");
+    } catch (error) {
+      setForm((prev) => ({ ...prev, image: "" }));
+      toast.error(error instanceof Error ? error.message : "Falha ao enviar capa");
+    } finally {
+      setUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+      URL.revokeObjectURL(previewUrl);
+      setCoverPreview(null);
+    }
   };
 
   const addGalleryFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    const currentCount = (coverPreview ? 1 : 0) + galleryPreviews.length;
+    const currentCount = (form.image ? 1 : 0) + galleryPreviews.length;
     const remaining = MAX_IMAGES - currentCount;
     if (remaining <= 0) {
       toast.error("Máximo de 10 imagens atingido");
       return;
     }
-    const accepted: LocalImage[] = [];
-    for (const file of Array.from(files).slice(0, remaining)) {
-      if (!isAcceptedImage(file)) {
-        toast.error(`Arquivo "${file.name}" não é JPG, PNG ou WEBP`);
-        continue;
+    const uploaded: LocalImage[] = [];
+    setUploadingGallery(true);
+    try {
+      if (!uploaderUserId) throw new Error("Usuário não identificado para upload.");
+      for (const file of Array.from(files).slice(0, remaining)) {
+        if (!isAcceptedImage(file)) {
+          toast.error(`Arquivo "${file.name}" não é JPG, PNG ou WEBP`);
+          continue;
+        }
+        if (file.size > MAX_BYTES) {
+          toast.error(`Arquivo "${file.name}" excede 5MB`);
+          continue;
+        }
+        const url = await uploadPropertyImage(file, {
+          userId: uploaderUserId,
+          propertyId: property?.id ? String(property.id) : null,
+          isPrimary: false,
+        });
+        uploaded.push({
+          id: `${file.name}-${crypto.randomUUID()}`,
+          url,
+        });
       }
-      if (file.size > MAX_BYTES) {
-        toast.error(`Arquivo "${file.name}" excede 5MB`);
-        continue;
+      if (uploaded.length) {
+        setGalleryPreviews((prev) =>
+          [...prev, ...uploaded].slice(0, MAX_IMAGES - (form.image ? 1 : 0)),
+        );
+        toast.success(
+          uploaded.length === 1
+            ? "Imagem adicionada à galeria."
+            : `${uploaded.length} imagens adicionadas à galeria.`,
+        );
       }
-      const previewUrl = createPreviewUrl(file);
-      accepted.push({
-        id: `${file.name}-${crypto.randomUUID()}`,
-        file,
-        url: previewUrl,
-        kind: "gallery",
-        previewUrl,
-      });
-    }
-    if (accepted.length) {
-      setGalleryPreviews((prev) =>
-        [...prev, ...accepted].slice(0, MAX_IMAGES - (coverPreview ? 1 : 0)),
-      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao enviar imagens");
+    } finally {
+      setUploadingGallery(false);
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
     }
   };
 
   const removeCover = () => {
-    if (coverPreview) URL.revokeObjectURL(coverPreview);
     setCoverPreview(null);
     update("image", "");
     if (coverInputRef.current) coverInputRef.current.value = "";
   };
 
   const removeGalleryImage = (id: string) => {
-    setGalleryPreviews((prev) => {
-      const found = prev.find((img) => img.id === id);
-      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
-      if (found && !found.previewUrl && found.file) URL.revokeObjectURL(found.url);
-      return prev.filter((img) => img.id !== id);
-    });
+    setGalleryPreviews((prev) => prev.filter((img) => img.id !== id));
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
@@ -438,11 +463,6 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
     });
   };
 
-  const persistedGalleryUrls = useMemo(
-    () => galleryPreviews.filter((img) => !img.file).map((img) => img.url),
-    [galleryPreviews],
-  );
-
   const submit = async () => {
     if (submitting) return;
     if (!form.title.trim()) {
@@ -453,22 +473,17 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
       toast.error("Preencha a descrição do imóvel");
       return;
     }
-    if (!coverPreview && !form.image.trim()) {
+    if (!form.image.trim()) {
       toast.error("Adicione uma foto de capa");
+      return;
+    }
+    if (uploadingCover || uploadingGallery) {
+      toast.error("Aguarde o upload das imagens terminar.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const coverUrl =
-        coverPreview && coverInputRef.current?.files?.[0]
-          ? await uploadPropertyImage(coverInputRef.current.files[0])
-          : form.image.trim() || undefined;
-      const uploadedGalleryUrls = await Promise.all(
-        galleryPreviews
-          .filter((img) => img.file)
-          .map((img) => uploadPropertyImage(img.file as File)),
-      );
       const payload = {
         title: form.title.trim(),
         type: form.type.trim(),
@@ -488,8 +503,8 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
         neighborhood: form.neighborhood.trim(),
         city: form.city.trim(),
         state: form.state.trim(),
-        image: coverUrl,
-        images: [...persistedGalleryUrls, ...uploadedGalleryUrls],
+        image: form.image.trim() || undefined,
+        images: galleryPreviews.map((img) => img.url),
         highlight: form.highlight.trim() || undefined,
         description: form.description.trim() || undefined,
         features: {
@@ -504,10 +519,6 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
         ? await updateProperty({ data: { id: String(property?.id), ...payload } })
         : await createProperty({ data: payload });
 
-      if (coverPreview) URL.revokeObjectURL(coverPreview);
-      galleryPreviews.forEach((img) => {
-        if (img.file) URL.revokeObjectURL(img.url);
-      });
       setCoverPreview(null);
       setGalleryPreviews([]);
       if (isEditing) onSaved?.(savedProperty);
@@ -561,7 +572,9 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
                 </p>
               </div>
               <div className="hidden sm:flex flex-col items-end text-[10px] uppercase tracking-[0.2em] text-navy-foreground/70">
-                <span>{coverPreview || form.image ? "Capa pronta" : "Sem capa"}</span>
+                <span>
+                  {form.image ? "Capa pronta" : uploadingCover ? "Enviando capa" : "Sem capa"}
+                </span>
                 <span>{galleryPreviews.length} foto(s) na galeria</span>
               </div>
             </div>
@@ -781,8 +794,9 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
                 variant="outline"
                 size="sm"
                 onClick={() => coverInputRef.current?.click()}
+                disabled={uploadingCover || submitting}
               >
-                Escolher capa
+                {uploadingCover ? "Enviando..." : "Escolher capa"}
               </Button>
             </div>
             <input
@@ -810,6 +824,11 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
                     <div className="text-sm font-medium text-white">
                       Será exibida na vitrine e no detalhe do imóvel
                     </div>
+                    {uploadingCover && (
+                      <div className="mt-1 text-[11px] text-white/80">
+                        Enviando para o storage...
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -841,11 +860,11 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
               </div>
             )}
             <div className="grid gap-2">
-              <Label>URL da imagem atual</Label>
+              <Label>URL pública da capa</Label>
               <Input
                 value={form.image}
-                onChange={(e) => update("image", e.target.value)}
-                placeholder="Fallback manual se preferir"
+                readOnly
+                placeholder="A URL pública aparecerá aqui após o upload"
               />
             </div>
           </div>
@@ -864,10 +883,12 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
                 size="sm"
                 onClick={() => galleryInputRef.current?.click()}
                 disabled={
-                  galleryPreviews.length >= MAX_IMAGES - (coverPreview || form.image ? 1 : 0)
+                  uploadingGallery ||
+                  submitting ||
+                  galleryPreviews.length >= MAX_IMAGES - (form.image ? 1 : 0)
                 }
               >
-                Adicionar fotos
+                {uploadingGallery ? "Enviando..." : "Adicionar fotos"}
               </Button>
             </div>
             <input
@@ -934,7 +955,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
               </div>
             )}
             <p className="text-[11px] text-muted-foreground">
-              JPG, PNG ou WEBP, até 5MB por imagem.
+              JPG, PNG ou WEBP, até 5MB por imagem. Apenas URLs públicas são salvas no banco.
             </p>
           </div>
 
@@ -948,8 +969,14 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={submitting}>
-            {submitting ? "Salvando..." : isEditing ? "Salvar alterações" : "Salvar imóvel"}
+          <Button onClick={submit} disabled={submitting || uploadingCover || uploadingGallery}>
+            {submitting
+              ? "Salvando..."
+              : uploadingCover || uploadingGallery
+                ? "Aguardando uploads..."
+                : isEditing
+                  ? "Salvar alterações"
+                  : "Salvar imóvel"}
           </Button>
         </DialogFooter>
       </DialogContent>
