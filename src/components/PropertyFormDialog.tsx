@@ -32,8 +32,6 @@ type LocalImage = {
 
 const MAX_IMAGES = 10;
 const MAX_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
 const featureLabels = [
   ["piscina", "Piscina"],
   ["piscinaAdulto", "Piscina adulto"],
@@ -159,7 +157,7 @@ function createPreviewUrl(file: File) {
 }
 
 function isAcceptedImage(file: File) {
-  return ACCEPTED_TYPES.includes(file.type);
+  return file.type.startsWith("image/");
 }
 
 function propertyToForm(property?: Record<string, any> | null) {
@@ -360,7 +358,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
 
   const addCover = async (file: File) => {
     if (!isAcceptedImage(file)) {
-      toast.error("A capa deve ser JPG, PNG ou WEBP");
+      toast.error("A capa deve ser um arquivo de imagem válido");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -404,7 +402,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
       if (!uploaderUserId) throw new Error("Usuário não identificado para upload.");
       for (const file of Array.from(files).slice(0, remaining)) {
         if (!isAcceptedImage(file)) {
-          toast.error(`Arquivo "${file.name}" não é JPG, PNG ou WEBP`);
+          toast.error(`Arquivo "${file.name}" não é uma imagem válida`);
           continue;
         }
         if (file.size > MAX_BYTES) {
@@ -802,7 +800,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
             <input
               ref={coverInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
@@ -843,7 +841,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
                     Resumo
                   </div>
                   <div className="text-sm">
-                    <span className="font-semibold">Formato aceito:</span> JPG, PNG e WEBP
+                    <span className="font-semibold">Formato aceito:</span> image/*
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold">Peso máximo:</span> 5MB por imagem
@@ -894,7 +892,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
             <input
               ref={galleryInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               multiple
               className="hidden"
               onChange={async (e) => {
@@ -955,7 +953,7 @@ export function PropertyFormDialog({ open, onOpenChange, onCreated, onSaved, pro
               </div>
             )}
             <p className="text-[11px] text-muted-foreground">
-              JPG, PNG ou WEBP, até 5MB por imagem. Apenas URLs públicas são salvas no banco.
+              Imagens de até 5MB por arquivo. Apenas URLs públicas são salvas no banco.
             </p>
           </div>
 

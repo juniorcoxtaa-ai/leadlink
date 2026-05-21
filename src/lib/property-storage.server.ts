@@ -1,48 +1,75 @@
 import { randomUUID } from "node:crypto";
+import { config as loadDotenv } from "dotenv";
 import { APP_URL } from "@/config.server";
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "";
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
-const PROPERTY_BUCKET = process.env.PROPERTY_IMAGE_BUCKET || "property-images";
+loadDotenv();
+
+function getStorageConfig() {
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    "";
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    "";
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey;
+  const propertyBucket = process.env.PROPERTY_IMAGE_BUCKET || "property-images";
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    supabaseServiceRoleKey,
+    propertyBucket,
+  };
+}
 
 function assertStorageConfigured() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  const { supabaseUrl, supabaseServiceRoleKey } = getStorageConfig();
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error(
       "Storage não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
     );
   }
 }
 
-function buildObjectPath(fileName: string) {
-  const ext = fileName.includes(".") ? fileName.split(".").pop() : "jpg";
-  return `properties/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${ext}`;
+type ServerUploadOptions = {
+  userId: string;
+  propertyId?: string | null;
+  isPrimary?: boolean;
+};
+
+function buildObjectPath(fileName: string, options: ServerUploadOptions) {
+  const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : "jpg";
+  const safeExt = ext && /^[a-z0-9]+$/i.test(ext) ? ext : "jpg";
+  const propertyId = options.propertyId?.trim() || "draft";
+  const variant = options.isPrimary ? "cover" : "gallery";
+  return `properties/${options.userId}/${propertyId}/${variant}-${randomUUID()}.${safeExt}`;
 }
 
 function publicUrlFor(path: string) {
-  if (!SUPABASE_URL) {
+  const { supabaseUrl, propertyBucket } = getStorageConfig();
+  if (!supabaseUrl) {
     return new URL(path, APP_URL).toString();
   }
-  return `${SUPABASE_URL}/storage/v1/object/public/${PROPERTY_BUCKET}/${path}`;
+  return `${supabaseUrl}/storage/v1/object/public/${propertyBucket}/${path}`;
 }
 
-export async function uploadPropertyImageServer(file: File): Promise<string> {
+export async function uploadPropertyImageServer(
+  file: File,
+  options: ServerUploadOptions,
+): Promise<string> {
   assertStorageConfigured();
-  const objectPath = buildObjectPath(file.name || "image.jpg");
-  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${PROPERTY_BUCKET}/${objectPath}`;
+  const { supabaseUrl, supabaseServiceRoleKey, propertyBucket } = getStorageConfig();
+  const objectPath = buildObjectPath(file.name || "image.jpg", options);
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${propertyBucket}/${objectPath}`;
   const response = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${supabaseServiceRoleKey}`,
+      apikey: supabaseServiceRoleKey,
       "x-upsert": "false",
       "content-type": file.type || "application/octet-stream",
     },
@@ -59,16 +86,30 @@ export async function uploadPropertyImageServer(file: File): Promise<string> {
 
 export async function deletePropertyImageServer(url: string): Promise<void> {
   assertStorageConfigured();
-  const marker = `/storage/v1/object/public/${PROPERTY_BUCKET}/`;
+  const { supabaseUrl, supabaseServiceRoleKey, propertyBucket } = getStorageConfig();
+  const marker = `/storage/v1/object/public/${propertyBucket}/`;
   const index = url.indexOf(marker);
   if (index < 0) return;
   const objectPath = url.slice(index + marker.length);
-  const removeUrl = `${SUPABASE_URL}/storage/v1/object/${PROPERTY_BUCKET}/${objectPath}`;
+  const removeUrl = `${supabaseUrl}/storage/v1/object/${propertyBucket}/${objectPath}`;
   await fetch(removeUrl, {
     method: "DELETE",
     headers: {
-      authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${supabaseServiceRoleKey}`,
+      apikey: supabaseServiceRoleKey,
     },
   });
+}
+
+export function getPropertyStorageDiagnostics() {
+  const { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey, propertyBucket } =
+    getStorageConfig();
+
+  return {
+    hasSupabaseUrl: Boolean(supabaseUrl),
+    hasPublishableKey: Boolean(supabaseAnonKey),
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    usingAnonFallback: !process.env.SUPABASE_SERVICE_ROLE_KEY && Boolean(supabaseServiceRoleKey),
+    propertyBucket,
+  };
 }

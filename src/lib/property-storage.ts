@@ -2,6 +2,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export const PROPERTY_IMAGE_BUCKET = "property-images";
 export const PROPERTY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PROPERTY_UPLOAD_ENDPOINT = "/api/property-images";
 
 type UploadOptions = {
   userId: string;
@@ -28,25 +29,50 @@ function buildObjectPath(file: File, options: UploadOptions) {
 
 export async function uploadPropertyImage(file: File, options: UploadOptions): Promise<string> {
   assertAcceptedImage(file);
-  const supabase = getSupabaseBrowserClient();
-  const objectPath = buildObjectPath(file, options);
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const objectPath = buildObjectPath(file, options);
 
-  const { error } = await supabase.storage.from(PROPERTY_IMAGE_BUCKET).upload(objectPath, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type || "application/octet-stream",
-  });
+    const { error } = await supabase.storage.from(PROPERTY_IMAGE_BUCKET).upload(objectPath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "application/octet-stream",
+    });
 
-  if (error) {
-    throw new Error(error.message || "Falha ao enviar imagem para o Supabase Storage.");
+    if (error) {
+      throw new Error(error.message || "Falha ao enviar imagem para o Supabase Storage.");
+    }
+
+    const { data } = supabase.storage.from(PROPERTY_IMAGE_BUCKET).getPublicUrl(objectPath);
+    if (!data?.publicUrl) {
+      throw new Error("Upload concluído sem URL pública.");
+    }
+
+    return data.publicUrl;
+  } catch {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("propertyId", options.propertyId?.trim() || "");
+    body.append("isPrimary", options.isPrimary ? "true" : "false");
+
+    const response = await fetch(PROPERTY_UPLOAD_ENDPOINT, {
+      method: "POST",
+      body,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(payload?.message || "Falha ao enviar imagem para o storage.");
+    }
+
+    const payload = (await response.json()) as { url?: string };
+    if (!payload?.url) {
+      throw new Error("Upload concluído sem URL pública.");
+    }
+
+    return payload.url;
   }
-
-  const { data } = supabase.storage.from(PROPERTY_IMAGE_BUCKET).getPublicUrl(objectPath);
-  if (!data?.publicUrl) {
-    throw new Error("Upload concluído sem URL pública.");
-  }
-
-  return data.publicUrl;
 }
 
 export async function deletePropertyImageByUrl(url: string): Promise<void> {

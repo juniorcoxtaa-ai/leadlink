@@ -32,6 +32,9 @@ function serverOnlyClientStubs() {
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
   cloudflare: false,
+  vite: {
+    envPrefix: ["VITE_", "NEXT_PUBLIC_"],
+  },
   plugins: [nitro(), serverOnlyClientStubs()],
   tanstackStart: {
     server: { entry: "server" },
