@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useRouterState, useRouteContext } from "@tanstack/react-router";
-import leadlinkLogo from "@/assets/leadlink-logo.png";
+import leadlinkSidebarMark from "@/assets/leadlink-sidebar-mark.jpeg";
 import {
   LayoutDashboard,
   Users,
@@ -27,11 +28,14 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { useSession } from "@/lib/auth-client";
 import { signOut } from "@/lib/use-auth";
+import { getMeuLinkConfig } from "@/server-fns/meu-link";
+import { safeSrc } from "@/lib/media";
+import type { LucideIcon } from "lucide-react";
 
 const main = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },
@@ -57,11 +61,44 @@ export function AppSidebar() {
   const plan = usePlanLimits();
   const ctx = useRouteContext({ strict: false }) as { user?: { name?: string; email?: string } };
   const user = ctx.user ?? sessionData?.user;
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const initials = user?.name
-    ? user.name.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()
+    ? user.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "?";
 
-  const renderItem = (item: { title: string; url: string; icon: any }) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    getMeuLinkConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const nextPhotoUrl =
+          config && typeof config === "object" && "photoUrl" in config
+            ? String((config as { photoUrl?: unknown }).photoUrl ?? "")
+            : "";
+        setProfilePhotoUrl(nextPhotoUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProfilePhotoUrl("");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sidebarAvatarUrl =
+    safeSrc(profilePhotoUrl) ||
+    safeSrc((user as { avatarUrl?: unknown } | undefined)?.avatarUrl) ||
+    undefined;
+
+  const renderItem = (item: { title: string; url: string; icon: LucideIcon }) => {
     const active = isActive(item.url);
     const isExtension = item.url === "/extensao";
     return (
@@ -73,9 +110,15 @@ export function AppSidebar() {
           className="h-10 rounded-lg data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-elegant hover:bg-sidebar-accent transition-all"
         >
           <Link to={item.url} className="relative flex items-center gap-3">
-            {active && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-emerald" />}
-            <item.icon className={`h-[17px] w-[17px] ${active ? "text-emerald" : "text-sidebar-foreground/70"}`} />
-            {!collapsed && <span className="text-[13px] font-medium tracking-tight">{item.title}</span>}
+            {active && (
+              <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-emerald" />
+            )}
+            <item.icon
+              className={`h-[17px] w-[17px] ${active ? "text-emerald" : "text-sidebar-foreground/70"}`}
+            />
+            {!collapsed && (
+              <span className="text-[13px] font-medium tracking-tight">{item.title}</span>
+            )}
             {!collapsed && isExtension && plan.isFree && (
               <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2 py-0.5 text-[10px] text-muted-foreground">
                 <Lock className="h-3 w-3" /> Pro
@@ -92,7 +135,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <Link to="/dashboard" className="flex items-center gap-2.5 px-2 py-3 group">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-elegant overflow-hidden">
-            <img src={leadlinkLogo} alt="Leadlink" className="h-8 w-8 object-contain" />
+            <img src={leadlinkSidebarMark} alt="LeadLink" className="h-full w-full object-cover" />
           </div>
           {!collapsed && (
             <div className="leading-tight">
@@ -116,9 +159,17 @@ export function AppSidebar() {
                   tooltip={collapsed ? "Ver Planos" : undefined}
                   className="h-10 rounded-lg bg-gradient-to-r from-gold/20 to-gold/10 hover:from-gold/30 hover:to-gold/20 border border-gold/30 data-[active=true]:from-gold/40 data-[active=true]:to-gold/30 transition-all"
                 >
-                  <Link to="/planos" search={{ success: undefined, canceled: undefined }} className="flex items-center gap-3">
+                  <Link
+                    to="/planos"
+                    search={{ success: undefined, canceled: undefined }}
+                    className="flex items-center gap-3"
+                  >
                     <Sparkles className="h-[17px] w-[17px] text-gold" />
-                    {!collapsed && <span className="text-[13px] font-semibold tracking-tight text-foreground">Ver Planos</span>}
+                    {!collapsed && (
+                      <span className="text-[13px] font-semibold tracking-tight text-foreground">
+                        Ver Planos
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -152,11 +203,18 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border">
         <div className="flex items-center gap-2.5 px-2 py-2">
           <Avatar className="h-9 w-9 ring-1 ring-border">
-            <AvatarFallback className="bg-navy text-gold font-semibold text-xs">{initials}</AvatarFallback>
+            {sidebarAvatarUrl && (
+              <AvatarImage src={sidebarAvatarUrl} alt={user?.name || "Usuário"} />
+            )}
+            <AvatarFallback className="bg-navy text-gold font-semibold text-xs">
+              {initials}
+            </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="leading-tight min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-foreground truncate">{user?.name || "Usuário"}</div>
+              <div className="text-[13px] font-semibold text-foreground truncate">
+                {user?.name || "Usuário"}
+              </div>
               <div className="text-[10px] text-muted-foreground truncate">{user?.email || ""}</div>
             </div>
           )}

@@ -195,6 +195,21 @@ function LandingPage() {
             <div className="mt-8 max-w-2xl">
               <CountdownCard />
             </div>
+            <div className="mt-6 flex w-full max-w-xl">
+              <a
+                href={PRELAUNCH_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto"
+              >
+                <Button
+                  size="lg"
+                  className="h-12 w-full bg-gold px-6 font-semibold text-navy shadow-lift hover:bg-gold/90 sm:w-auto"
+                >
+                  Participe do Pré-Lançamento <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </a>
+            </div>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald" />
@@ -374,6 +389,21 @@ function LandingPage() {
                 </li>
               ))}
             </ul>
+            <div className="mt-8 flex">
+              <a
+                href={PRELAUNCH_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto"
+              >
+                <Button
+                  size="lg"
+                  className="h-12 w-full border border-gold/20 bg-gold text-navy shadow-[0_20px_50px_-22px_color-mix(in_oklab,var(--gold)_70%,transparent)] hover:bg-gold/90 sm:w-auto"
+                >
+                  Participe do Pré-Lançamento <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </a>
+            </div>
           </div>
           <div className="relative order-1 md:order-2">
             <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,_var(--gold)_24%,_transparent),_transparent_70%)] blur-3xl" />
@@ -421,6 +451,21 @@ function LandingPage() {
               completo da conversa e prioridade definida, reduzindo tempo perdido e aumentando
               significativamente as chances de conversão.
             </p>
+            <div className="mt-8 flex">
+              <a
+                href={PRELAUNCH_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto"
+              >
+                <Button
+                  size="lg"
+                  className="h-12 w-full bg-navy px-6 font-semibold text-navy-foreground shadow-lift hover:bg-navy/90 sm:w-auto"
+                >
+                  Participe do Pré-Lançamento <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
       </section>
