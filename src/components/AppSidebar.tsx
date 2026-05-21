@@ -31,7 +31,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
-import { useSession } from "@/lib/auth-client";
 import { signOut } from "@/lib/use-auth";
 import { getMeuLinkConfig } from "@/server-fns/meu-link";
 import { safeSrc } from "@/lib/media";
@@ -57,10 +56,11 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (url: string) => path === url || path.startsWith(url + "/");
-  const { data: sessionData } = useSession();
   const plan = usePlanLimits();
-  const ctx = useRouteContext({ strict: false }) as { user?: { name?: string; email?: string } };
-  const user = ctx.user ?? sessionData?.user;
+  const ctx = useRouteContext({ strict: false }) as {
+    user?: { name?: string; email?: string; avatarUrl?: string | null };
+  };
+  const user = ctx.user;
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const initials = user?.name
     ? user.name

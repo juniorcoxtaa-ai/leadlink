@@ -157,7 +157,7 @@ function PlanCard({
   const isPaid = subscriptionStatus === "active" || subscriptionStatus === "trialing";
 
   const cardClass = isComingSoon
-    ? "border border-gold/35 bg-[radial-gradient(circle_at_top,_rgba(212,165,116,0.16),_transparent_48%),linear-gradient(135deg,hsl(var(--navy)),rgba(15,23,42,0.95))] text-navy-foreground shadow-elegant"
+    ? "border border-gold/35 bg-[radial-gradient(circle_at_top,_rgba(212,165,116,0.16),_transparent_48%),linear-gradient(135deg,#142033,#1b2b44)] text-white shadow-elegant"
     : isImobiliaria
       ? "border border-navy/15 bg-[linear-gradient(180deg,rgba(212,165,116,0.08),rgba(255,255,255,0.98))] shadow-[0_20px_60px_rgba(15,23,42,0.08)]"
       : "border border-border/70 bg-background shadow-sm";
@@ -168,7 +168,7 @@ function PlanCard({
       ? "bg-navy text-navy-foreground"
       : "bg-secondary";
 
-  const mutedClass = isComingSoon ? "text-navy-foreground/72" : "text-muted-foreground";
+  const mutedClass = isComingSoon ? "text-white/78" : "text-muted-foreground";
   const checkClass = isComingSoon ? "text-gold" : isImobiliaria ? "text-navy" : "text-emerald";
 
   const checkoutMutation = useMutation({

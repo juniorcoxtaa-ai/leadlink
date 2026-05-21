@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type CSSProperties } from "react";
 import {
   MapPin,
@@ -86,6 +87,16 @@ function VitrinePage() {
     cfg: MeuLinkConfig;
     props: PublicProperty[];
   };
+  const { data: liveProps = props } = useQuery({
+    queryKey: ["public-vitrine", slug, "properties"],
+    queryFn: () => getPropertiesBySlug({ data: slug }),
+    initialData: props,
+    staleTime: 90_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
   const corretor = cfg.name || prettyName(slug);
   const firstName = corretor.split(" ")[0];
   const initials = getInitials(corretor);
@@ -99,15 +110,15 @@ function VitrinePage() {
 
   const list = useMemo(
     () =>
-      props
+      liveProps
         .filter((p) => repairText(p.status) === "Disponível")
         .filter((p) => (type === "Todos" ? true : p.type === type))
         .filter((p) => (q.trim() === "" ? true : propertySearchText(p).includes(q.toLowerCase()))),
-    [props, q, type],
+    [liveProps, q, type],
   );
 
   const featured = useMemo(() => {
-    const byId = new Map(props.map((p) => [p.id, p]));
+    const byId = new Map(liveProps.map((p) => [p.id, p]));
     const manual = (cfg.featuredIds || [])
       .map((id) => byId.get(id))
       .filter((item): item is PublicProperty => Boolean(item));
@@ -115,7 +126,7 @@ function VitrinePage() {
     const highlighted = props.filter((p) => p.highlight && repairText(p.status) === "Disponível");
     if (highlighted.length > 0) return highlighted.slice(0, 3);
     return props.filter((p) => repairText(p.status) === "Disponível").slice(0, 3);
-  }, [cfg.featuredIds, props]);
+  }, [cfg.featuredIds, liveProps]);
 
   const cityRegion = cfg.city || props[0]?.city || "sua região";
   const heroImage =
@@ -137,6 +148,11 @@ function VitrinePage() {
               <img
                 src={safeSrc(cfg.photoUrl)}
                 alt={corretor}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                width={40}
+                height={40}
                 className="h-10 w-10 rounded-full object-cover ring-2 ring-gold/40"
               />
             ) : (
@@ -176,6 +192,8 @@ function VitrinePage() {
               alt=""
               aria-hidden
               loading="eager"
+              fetchPriority="high"
+              decoding="async"
               width={1600}
               height={900}
               className="absolute inset-0 w-full h-full object-cover scale-110"
@@ -240,6 +258,11 @@ function VitrinePage() {
                   <img
                     src={safeSrc(cfg.photoUrl)}
                     alt={corretor}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    width={64}
+                    height={64}
                     className="h-16 w-16 rounded-full object-cover ring-2 ring-gold/50"
                   />
                 ) : (
@@ -308,6 +331,10 @@ function VitrinePage() {
                     <img
                       src={safeSrc(p.image)}
                       alt={repairText(p.title)}
+                      loading="lazy"
+                      decoding="async"
+                      width={112}
+                      height={144}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -412,6 +439,8 @@ function VitrinePage() {
                           src={safeSrc(p.image)}
                           alt={repairText(p.title)}
                           loading="lazy"
+                          fetchPriority="low"
+                          decoding="async"
                           width={800}
                           height={1000}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"

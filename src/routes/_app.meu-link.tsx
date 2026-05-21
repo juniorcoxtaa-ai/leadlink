@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,8 @@ import { safeSrc } from "@/lib/media";
 import { EmptyState } from "@/components/EmptyState";
 import { openUrlWithFallback } from "@/lib/open-url";
 
+type AvailableProperty = Awaited<ReturnType<typeof getProperties>>[number];
+
 export const Route = createFileRoute("/_app/meu-link")({
   head: () => ({ meta: [{ title: "Meu Link — Leadlink" }] }),
   component: MeuLinkPage,
@@ -85,36 +88,45 @@ function MeuLinkPage() {
   const [hasRemoteConfig, setHasRemoteConfig] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [qrOpen, setQrOpen] = useState(false);
-  const [availableProps, setAvailableProps] = useState<Awaited<ReturnType<typeof getProperties>>>(
-    [],
-  );
-  const [profile, setProfile] = useState<Awaited<ReturnType<typeof getMyProfile>> | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const vitrineCoverInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    getProperties()
-      .then(setAvailableProps)
-      .catch(() => setAvailableProps([]));
-    getMyProfile()
-      .then(setProfile)
-      .catch(() => setProfile(null));
-  }, []);
+  const { data: availableProps = [] } = useQuery({
+    queryKey: ["meu-link", "properties"],
+    queryFn: () => getProperties(),
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
 
-  // Hidrata do backend
+  const { data: profile = null } = useQuery({
+    queryKey: ["meu-link", "profile"],
+    queryFn: () => getMyProfile(),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+
+  const { data: remoteConfig = EMPTY_MEU_LINK_CONFIG } = useQuery({
+    queryKey: ["meu-link", "config"],
+    queryFn: () => loadConfig(),
+    staleTime: 90_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+
   useEffect(() => {
-    let cancel = false;
-    loadConfig().then((c) => {
-      if (cancel) return;
-      setCfg(c);
-      setHasRemoteConfig(Boolean(c.slug));
-      setHydrated(true);
-    });
-    return () => {
-      cancel = true;
-    };
-  }, []);
+    setCfg(remoteConfig);
+    setHasRemoteConfig(Boolean(remoteConfig.slug));
+    setHydrated(true);
+  }, [remoteConfig]);
 
   // Auto-persiste a cada edição (depois da hidratação)
   useEffect(() => {
@@ -608,7 +620,7 @@ function MeuLinkPage() {
                         ) : (
                           cfg.name
                             .split(" ")
-                            .map((p: any) => p[0])
+                            .map((p: string) => p[0])
                             .slice(0, 2)
                             .join("")
                             .toUpperCase()
@@ -1162,7 +1174,7 @@ function MeuLinkPage() {
                       para destacar aqui.
                     </p>
                   )}
-                  {availableProps.map((p: any) => {
+                  {availableProps.map((p: AvailableProperty) => {
                     const isSelected = cfg.featuredIds.includes(p.id);
                     return (
                       <button
@@ -1289,7 +1301,7 @@ function MeuLinkPage() {
                   </div>
                   <MeuLinkPreview
                     cfg={cfg}
-                    featuredProperties={availableProps.filter((p: any) =>
+                    featuredProperties={availableProps.filter((p: AvailableProperty) =>
                       cfg.featuredIds.includes(p.id),
                     )}
                   />

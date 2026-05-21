@@ -1,13 +1,15 @@
+import { useRouteContext } from "@tanstack/react-router";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, Search, HelpCircle, Home, UserRound, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/auth-client";
 import { searchLeads } from "@/server-fns/leads";
 import { searchProperties } from "@/server-fns/properties";
 import { shouldRunGlobalSearch } from "@/lib/global-search";
+import { getMeuLinkConfig } from "@/server-fns/meu-link";
+import { safeSrc } from "@/lib/media";
 
 type SearchResult = {
   id: string;
@@ -17,14 +19,34 @@ type SearchResult = {
   href: string;
 };
 
+type LeadSearchRow = {
+  id: string;
+  name?: string;
+  source?: string;
+  region?: string;
+  phone?: string;
+};
+
+type PropertySearchRow = {
+  id: string;
+  title?: string;
+  code?: string;
+  neighborhood?: string;
+  city?: string;
+  status?: string;
+};
+
 export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { data: session } = useSession();
-  const user = session?.user;
+  const ctx = useRouteContext({ strict: false }) as {
+    user?: { name?: string; avatarUrl?: string | null };
+  };
+  const user = ctx.user;
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -45,17 +67,17 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
       .then(([leads, properties]) => {
         if (cancelled) return;
         setResults([
-          ...(leads as any[]).map((lead) => ({
+          ...(leads as LeadSearchRow[]).map((lead) => ({
             id: lead.id,
             type: "lead" as const,
-            title: lead.name,
+            title: lead.name ?? "Lead sem nome",
             subtitle: [lead.source, lead.region, lead.phone].filter(Boolean).join(" · "),
             href: `/leads/${lead.id}`,
           })),
-          ...(properties as any[]).map((property) => ({
+          ...(properties as PropertySearchRow[]).map((property) => ({
             id: property.id,
             type: "property" as const,
-            title: property.title,
+            title: property.title ?? "Imóvel sem título",
             subtitle: [property.code, property.neighborhood, property.city, property.status]
               .filter(Boolean)
               .join(" · "),
@@ -70,16 +92,48 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
       cancelled = true;
     };
   }, [debouncedQuery]);
+  useEffect(() => {
+    let cancelled = false;
+
+    getMeuLinkConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const nextPhotoUrl =
+          config && typeof config === "object" && "photoUrl" in config
+            ? String((config as { photoUrl?: unknown }).photoUrl ?? "")
+            : "";
+        setProfilePhotoUrl(nextPhotoUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProfilePhotoUrl("");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const initials = user?.name
-    ? user.name.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()
+    ? user.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "?";
   const avatarText = mounted ? initials : "?";
+  const topbarAvatarUrl =
+    safeSrc(profilePhotoUrl) ||
+    safeSrc((user as { avatarUrl?: unknown } | undefined)?.avatarUrl) ||
+    undefined;
 
   return (
     <header className="sticky top-0 z-30 flex h-[68px] items-center gap-4 border-b border-border/70 bg-background/85 backdrop-blur-xl px-4 md:px-8">
       <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
       <div className="hidden md:block min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">Leadlink</div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">
+          Leadlink
+        </div>
         <h1 className="font-display text-[19px] font-semibold leading-none tracking-tight truncate -mt-0.5">
           {title}
         </h1>
@@ -104,7 +158,9 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
                   Buscando...
                 </div>
               ) : results.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-muted-foreground">Nenhum resultado encontrado.</div>
+                <div className="px-3 py-4 text-sm text-muted-foreground">
+                  Nenhum resultado encontrado.
+                </div>
               ) : (
                 <div className="max-h-[360px] overflow-y-auto py-1">
                   {results.map((result) => (
@@ -115,11 +171,17 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
                       className="flex items-start gap-3 px-3 py-2.5 hover:bg-secondary/70"
                     >
                       <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-                        {result.type === "lead" ? <UserRound className="h-4 w-4" /> : <Home className="h-4 w-4" />}
+                        {result.type === "lead" ? (
+                          <UserRound className="h-4 w-4" />
+                        ) : (
+                          <Home className="h-4 w-4" />
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{result.title}</div>
-                        <div className="text-xs text-muted-foreground truncate">{result.subtitle}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {result.subtitle}
+                        </div>
                       </div>
                     </a>
                   ))}
@@ -128,7 +190,11 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
             </div>
           )}
         </div>
-        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hidden md:inline-flex">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full h-10 w-10 hidden md:inline-flex"
+        >
           <HelpCircle className="h-[18px] w-[18px] text-muted-foreground" />
         </Button>
         <Button variant="ghost" size="icon" className="relative rounded-full h-10 w-10">
@@ -137,7 +203,10 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
         </Button>
         <div className="h-8 w-px bg-border mx-1 hidden md:block" />
         <Avatar className="h-10 w-10 ring-1 ring-border">
-          <AvatarFallback className="bg-navy text-gold text-xs font-semibold">{avatarText}</AvatarFallback>
+          <AvatarImage src={topbarAvatarUrl} alt={user?.name || "Usuário"} />
+          <AvatarFallback className="bg-navy text-gold text-xs font-semibold">
+            {avatarText}
+          </AvatarFallback>
         </Avatar>
       </div>
     </header>

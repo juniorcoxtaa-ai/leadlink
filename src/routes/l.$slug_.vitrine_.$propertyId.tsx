@@ -228,6 +228,9 @@ function PropertyDetail() {
               <img
                 src={safeSrc(gallery[active])}
                 alt={repairText(p.title)}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 width={1600}
                 height={1200}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
@@ -292,6 +295,8 @@ function PropertyDetail() {
                       src={safeSrc(img)}
                       alt=""
                       loading="lazy"
+                      fetchPriority="low"
+                      decoding="async"
                       width={640}
                       height={480}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -377,6 +382,10 @@ function PropertyDetail() {
                     <img
                       src={safeSrc(cfg.photoUrl)}
                       alt={corretorName}
+                      loading="lazy"
+                      decoding="async"
+                      width={56}
+                      height={56}
                       className="h-14 w-14 rounded-full object-cover ring-2 ring-gold/40"
                     />
                   ) : (
@@ -487,6 +496,10 @@ function PropertyDetail() {
                           src={safeSrc(item.image)}
                           alt={repairText(item.title)}
                           loading="lazy"
+                          fetchPriority="low"
+                          decoding="async"
+                          width={800}
+                          height={1000}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
                         />
                       ) : (
