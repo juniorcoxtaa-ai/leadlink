@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
-  BadgeCheck,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { QuizDialog } from "@/components/QuizDialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EMPTY_MEU_LINK_CONFIG, type MeuLinkConfig } from "@/lib/meu-link-store";
 import { safeSrc } from "@/lib/media";
 import {
@@ -29,9 +29,9 @@ import {
   purposePriceLabel,
   repairText,
 } from "@/lib/property-display";
+import { toWhatsappNumber } from "@/lib/phone";
 import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { getPropertiesBySlug, getPropertyPublic } from "@/server-fns/properties";
-import { toWhatsappNumber } from "@/lib/phone";
 
 type PublicProperty = PropertyDisplayInput & {
   id: string;
@@ -46,7 +46,7 @@ type PublicProperty = PropertyDisplayInput & {
 
 export const Route = createFileRoute("/l/$slug_/vitrine_/$propertyId")({
   head: ({ params }: { params: { slug: string } }) => ({
-    meta: [{ title: `Imóvel — ${params.slug} · LeadLink` }],
+    meta: [{ title: `ImÃ³vel â€” ${params.slug} Â· LeadLink` }],
   }),
   loader: async ({ params }: { params: { slug: string; propertyId: string } }) => {
     const [property, rawCfg, props] = await Promise.all([
@@ -74,7 +74,14 @@ function formatMeterPrice(price?: number | null, area?: number | null) {
   const numericPrice = Number(price || 0);
   const numericArea = Number(area || 0);
   if (!numericPrice || !numericArea) return "";
-  return `${formatPropertyPrice(Math.round(numericPrice / numericArea))}/m²`;
+  return `${formatPropertyPrice(Math.round(numericPrice / numericArea))}/mÂ²`;
+}
+
+function buildDescriptionParagraphs(description: string) {
+  return description
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 }
 
 function PropertyDetail() {
@@ -89,16 +96,17 @@ function PropertyDetail() {
     props: PublicProperty[];
   };
   const [quizOpen, setQuizOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [active, setActive] = useState(0);
 
   if (!p) {
     return (
       <div className="min-h-screen bg-cream text-foreground flex items-center justify-center px-6">
         <div className="max-w-md text-center space-y-3">
-          <div className="text-4xl">🏠</div>
-          <h1 className="font-display text-2xl font-semibold">Imóvel indisponível</h1>
+          <div className="text-4xl">ðŸ </div>
+          <h1 className="font-display text-2xl font-semibold">ImÃ³vel indisponÃ­vel</h1>
           <p className="text-sm text-muted-foreground">
-            Este imóvel não está disponível no momento.
+            Este imÃ³vel nÃ£o estÃ¡ disponÃ­vel no momento.
           </p>
           <Link
             to="/l/$slug/vitrine"
@@ -125,16 +133,22 @@ function PropertyDetail() {
     Boolean,
   ) as string[];
   const details = getPropertyDetails(p);
-  const compactDetails = details.map((detail) => detail.compact).slice(0, 3);
   const features = buildFeaturesList(p.features);
   const location = formatPropertyLocation(p);
   const meterPrice = formatMeterPrice(p.price, p.area);
+  const description = buildPropertyDescription(p);
+  const descriptionParagraphs = buildDescriptionParagraphs(description);
   const brokerPhone = toWhatsappNumber(p.whatsapp || p.phone || cfg.whatsapp || "") || "";
   const telUrl = brokerPhone ? `tel:+${brokerPhone}` : undefined;
   const relatedProperties = props
-    .filter((item) => item.id !== p.id && repairText(item.status) === "Disponível")
+    .filter((item) => item.id !== p.id && repairText(item.status) === "DisponÃ­vel")
     .slice(0, 4);
   const purpose = purposeBadgeLabel(p.businessType);
+
+  const openGalleryAt = (index: number) => {
+    setActive(index);
+    setGalleryOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-cream text-foreground antialiased">
@@ -189,7 +203,7 @@ function PropertyDetail() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 md:pt-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 md:pt-8 pb-28 lg:pb-0">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 mb-5 md:mb-6">
           <div className="space-y-2 min-w-0">
             <div className="flex items-center gap-2 flex-wrap text-[10px] uppercase tracking-[0.22em]">
@@ -223,7 +237,7 @@ function PropertyDetail() {
         </div>
 
         <div className="grid lg:grid-cols-[1.6fr_1fr] gap-3 mb-10">
-          <div className="relative aspect-[4/3] lg:aspect-[16/11] rounded-3xl overflow-hidden ring-1 ring-border/60 bg-secondary group shadow-[0_24px_60px_-30px_rgba(15,27,45,0.4)]">
+          <div className="relative aspect-[4/3] lg:aspect-[16/11] rounded-3xl overflow-hidden ring-1 ring-border/60 bg-secondary shadow-[0_24px_60px_-30px_rgba(15,27,45,0.4)]">
             {safeSrc(gallery[active]) ? (
               <img
                 src={safeSrc(gallery[active])}
@@ -245,31 +259,34 @@ function PropertyDetail() {
             {gallery.length > 1 && (
               <>
                 <button
-                  onClick={() => setActive((i) => (i - 1 + gallery.length) % gallery.length)}
+                  type="button"
+                  onClick={() => setActive((index) => (index - 1 + gallery.length) % gallery.length)}
                   aria-label="Anterior"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 md:h-11 md:w-11 rounded-full border border-white/70 bg-white/92 backdrop-blur-md grid place-items-center text-navy hover:bg-white shadow-[0_12px_30px_-12px_rgba(15,27,45,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-6 w-6 md:h-5 md:w-5" />
                 </button>
                 <button
-                  onClick={() => setActive((i) => (i + 1) % gallery.length)}
-                  aria-label="Próximo"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 backdrop-blur grid place-items-center text-navy hover:bg-white shadow-lg transition opacity-0 group-hover:opacity-100"
+                  type="button"
+                  onClick={() => setActive((index) => (index + 1) % gallery.length)}
+                  aria-label="PrÃ³ximo"
+                  className="absolute right-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 md:h-11 md:w-11 rounded-full border border-white/70 bg-white/92 backdrop-blur-md grid place-items-center text-navy hover:bg-white shadow-[0_12px_30px_-12px_rgba(15,27,45,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-6 w-6 md:h-5 md:w-5" />
                 </button>
               </>
             )}
 
             {gallery.length > 1 && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 backdrop-blur-md rounded-full px-2.5 py-1.5">
-                {gallery.map((_, i) => (
+                {gallery.map((_, index) => (
                   <button
-                    key={i}
-                    aria-label={`Foto ${i + 1}`}
-                    onClick={() => setActive(i)}
+                    key={index}
+                    type="button"
+                    aria-label={`Foto ${index + 1}`}
+                    onClick={() => setActive(index)}
                     className={`h-1.5 rounded-full transition-all ${
-                      active === i ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+                      active === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
                     }`}
                   />
                 ))}
@@ -279,30 +296,45 @@ function PropertyDetail() {
 
           {gallery.length > 1 && (
             <div className="grid gap-3">
-              {gallery.slice(1, 5).map((img, i) => {
-                const idx = i + 1;
+              {gallery.slice(1, 5).map((img, index) => {
+                const galleryIndex = index + 1;
+                const thumbnailSrc = safeSrc(img);
+
                 return (
                   <button
-                    key={idx}
-                    onClick={() => setActive(idx)}
+                    key={galleryIndex}
+                    type="button"
+                    onClick={() => {
+                      if (index === 3 && gallery.length > 5) {
+                        openGalleryAt(galleryIndex);
+                        return;
+                      }
+                      setActive(galleryIndex);
+                    }}
                     className={`relative aspect-[4/3] rounded-2xl overflow-hidden ring-1 transition-all group ${
-                      active === idx
+                      active === galleryIndex
                         ? "ring-2 ring-navy"
                         : "ring-border/60 hover:ring-foreground/30"
                     }`}
                   >
-                    <img
-                      src={safeSrc(img)}
-                      alt=""
-                      loading="lazy"
-                      fetchPriority="low"
-                      decoding="async"
-                      width={640}
-                      height={480}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    {i === 3 && gallery.length > 5 && (
-                      <div className="absolute inset-0 bg-navy/70 grid place-items-center text-white">
+                    {thumbnailSrc ? (
+                      <img
+                        src={thumbnailSrc}
+                        alt=""
+                        loading="lazy"
+                        fetchPriority="low"
+                        decoding="async"
+                        width={640}
+                        height={480}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center bg-secondary text-muted-foreground text-[10px] uppercase tracking-wider">
+                        SEM IMAGEM
+                      </div>
+                    )}
+                    {index === 3 && gallery.length > 5 && (
+                      <div className="absolute inset-0 bg-navy/72 grid place-items-center text-white">
                         <div className="text-center">
                           <div className="font-display text-2xl font-semibold">
                             +{gallery.length - 5}
@@ -341,11 +373,22 @@ function PropertyDetail() {
           <div className="space-y-12">
             <section>
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">
-                Sobre o imóvel
+                Sobre o imÃ³vel
               </div>
-              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imóvel</h2>
-              <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed space-y-3">
-                <p>{buildPropertyDescription(p)}</p>
+              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imÃ³vel</h2>
+              <div className="max-w-prose text-base md:text-lg text-muted-foreground leading-relaxed">
+                {descriptionParagraphs.length > 0 ? (
+                  descriptionParagraphs.map((paragraph, index) => (
+                    <p
+                      key={`${index}-${paragraph.slice(0, 24)}`}
+                      className="mb-4 whitespace-pre-line last:mb-0"
+                    >
+                      {paragraph}
+                    </p>
+                  ))
+                ) : (
+                  <p className="whitespace-pre-line">{description}</p>
+                )}
               </div>
             </section>
 
@@ -368,7 +411,7 @@ function PropertyDetail() {
             {location && (
               <section className="rounded-2xl overflow-hidden border border-border/70 bg-card">
                 <div className="aspect-[16/7] bg-[linear-gradient(135deg,_color-mix(in_oklab,_var(--navy)_15%,_transparent),_color-mix(in_oklab,_var(--gold)_15%,_transparent))] grid place-items-center text-muted-foreground text-xs uppercase tracking-[0.2em]">
-                  Mapa · {location}
+                  Mapa Â· {location}
                 </div>
               </section>
             )}
@@ -438,7 +481,7 @@ function PropertyDetail() {
                   <Check className="h-3 w-3 text-emerald" /> Visita acompanhada
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Check className="h-3 w-3 text-emerald" /> Documentação
+                  <Check className="h-3 w-3 text-emerald" /> DocumentaÃ§Ã£o
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 text-emerald" /> Financiamento
@@ -450,7 +493,7 @@ function PropertyDetail() {
             </div>
 
             <div className="rounded-2xl border border-dashed border-border bg-cream p-5 text-xs text-muted-foreground leading-relaxed">
-              Atendimento exclusivo de segunda a sábado. Visitas mediante agendamento.
+              Atendimento exclusivo de segunda a sÃ¡bado. Visitas mediante agendamento.
             </div>
           </aside>
         </div>
@@ -460,10 +503,10 @@ function PropertyDetail() {
             <div className="flex items-end justify-between mb-8">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1">
-                  Mais opções
+                  Mais opÃ§Ãµes
                 </div>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
-                  Outros imóveis de {firstName}
+                  Outros imÃ³veis de {firstName}
                 </h2>
               </div>
               <Link
@@ -480,7 +523,7 @@ function PropertyDetail() {
                 const itemDetails = getPropertyDetails(item)
                   .map((detail) => detail.compact)
                   .slice(0, 2)
-                  .join(" · ");
+                  .join(" Â· ");
                 const itemLocation = formatPropertyLocation(item);
 
                 return (
@@ -552,7 +595,7 @@ function PropertyDetail() {
             params={{ slug }}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imóveis
+            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imÃ³veis
           </Link>
           <Link
             to="/"
@@ -573,6 +616,92 @@ function PropertyDetail() {
           Falar pelo WhatsApp
         </button>
       </div>
+
+      <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+        <DialogContent className="max-w-[min(96vw,1100px)] w-full border-0 bg-black/95 p-0 shadow-2xl overflow-hidden">
+          <DialogTitle className="sr-only">Galeria de fotos do imóvel</DialogTitle>
+          <div className="relative">
+            <div className="relative aspect-[4/3] md:aspect-[16/10] bg-black">
+              {safeSrc(gallery[active]) ? (
+                <img
+                  src={safeSrc(gallery[active])}
+                  alt={`${repairText(p.title)} - foto ${active + 1}`}
+                  loading="eager"
+                  decoding="async"
+                  width={1600}
+                  height={1200}
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              ) : null}
+
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActive((index) => (index - 1 + gallery.length) % gallery.length)}
+                    aria-label="Foto anterior"
+                    className="absolute left-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 rounded-full bg-white/92 text-navy grid place-items-center shadow-lg transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActive((index) => (index + 1) % gallery.length)}
+                    aria-label="Próxima foto"
+                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 rounded-full bg-white/92 text-navy grid place-items-center shadow-lg transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+
+              <div className="absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+                {active + 1} / {gallery.length}
+              </div>
+            </div>
+
+            {gallery.length > 1 && (
+              <div className="border-t border-white/10 bg-black/80 p-3">
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {gallery.map((img, index) => {
+                    const thumbnailSrc = safeSrc(img);
+
+                    return (
+                      <button
+                        key={`${img}-${index}`}
+                        type="button"
+                        onClick={() => setActive(index)}
+                        aria-label={`Abrir foto ${index + 1}`}
+                        className={`relative h-20 w-24 shrink-0 overflow-hidden rounded-xl border transition ${
+                          active === index
+                            ? "border-white shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
+                            : "border-white/15 opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        {thumbnailSrc ? (
+                          <img
+                            src={thumbnailSrc}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            width={240}
+                            height={160}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full grid place-items-center bg-secondary text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Sem imagem
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <QuizDialog
         open={quizOpen}
