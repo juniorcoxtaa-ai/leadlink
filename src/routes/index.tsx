@@ -21,7 +21,7 @@ import {
 import leadlinkLogo from "@/assets/leadlink-logo.png";
 import heroImg from "@/assets/leadlink-hero.jpg";
 import vitrineTabletImg from "@/assets/leadlink-vitrine-tablet.png";
-import whatsappImg from "@/assets/leadlink-whatsapp.jpg";
+import quizFlowImg from "@/assets/leadlink-quiz-flow.png";
 
 const PRELAUNCH_DATE = new Date("2026-05-25T00:00:00-03:00").getTime();
 const PRELAUNCH_WHATSAPP_URL = "https://chat.whatsapp.com/LGC6EMpPKtqLPuz7Z89dhB";
@@ -350,27 +350,23 @@ function LandingPage() {
           <div className="order-2 md:order-1">
             <div className="text-xs uppercase tracking-[0.25em] text-gold">Vitrine inteligente</div>
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-5xl">
-              Vitrine Inteligente de Imóveis
+              Vitrine Personalizada para Cada Corretor
             </h2>
             <p className="mt-4 max-w-xl text-navy-foreground/70 md:text-lg">
-              Cada corretor possui uma vitrine própria, totalmente personalizada para apresentar
-              seus imóveis de forma mais profissional, organizada e estratégica.
+              Cada corretor possui sua própria página de imóveis, totalmente personalizável e pronta
+              para compartilhar.
             </p>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-navy-foreground/78 md:text-base">
-              A experiência foi criada para transformar o perfil do corretor em um verdadeiro ponto
-              de atendimento digital, reunindo imóveis, apresentação profissional, contato direto e
-              captação de leads em um único ambiente.
+              Uma estrutura moderna para apresentar imóveis, fortalecer autoridade e transformar
+              visitas em atendimentos no WhatsApp.
             </p>
             <ul className="mt-7 grid gap-3 text-sm text-navy-foreground/85 sm:grid-cols-2">
               {[
-                "Página exclusiva e personalizável para cada corretor",
-                "Catálogo de imóveis com visual premium e atualizado",
-                "Compartilhamento simples para Instagram, WhatsApp e anúncios",
-                "Organização inteligente por categoria, bairro e tipo de imóvel",
-                "Experiência moderna pensada para gerar mais conversas qualificadas",
-                "Estrutura preparada para tráfego pago e captação de leads",
-                "Integração direta com WhatsApp para acelerar o atendimento",
-                "Atualização contínua da vitrine conforme novos imóveis entram",
+                "Página exclusiva para cada corretor",
+                "Catálogo de imóveis com visual premium",
+                "Integração direta com WhatsApp",
+                "Ideal para Instagram, anúncios e tráfego pago",
+                "Atualização simples e organizada dos imóveis",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-gold" />
@@ -378,10 +374,6 @@ function LandingPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-7 max-w-2xl text-sm leading-relaxed text-navy-foreground/78 md:text-base">
-              Mais do que um catálogo, a vitrine funciona como uma extensão digital da operação
-              comercial do corretor.
-            </p>
           </div>
           <div className="relative order-1 md:order-2">
             <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,_var(--gold)_24%,_transparent),_transparent_70%)] blur-3xl" />
@@ -402,42 +394,33 @@ function LandingPage() {
           <div className="relative">
             <div className="absolute -inset-8 -z-10 rounded-full bg-emerald/10 blur-3xl" />
             <img
-              src={whatsappImg}
-              alt="Operação comercial pelo WhatsApp com o LeadLink"
+              src={quizFlowImg}
+              alt="Fluxo de quiz inteligente e qualificação de leads no LeadLink"
               width={1024}
-              height={1024}
+              height={1536}
               loading="lazy"
               className="rounded-2xl border border-border/60 shadow-lift"
             />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-emerald">Atendimento</div>
+            <div className="text-xs uppercase tracking-[0.25em] text-emerald">Quiz inteligente</div>
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-5xl">
-              Atendimento com padrão premium, sem perder timing comercial.
+              Quiz Inteligente que prepara o atendimento antes do primeiro contato
             </h2>
             <p className="mt-4 text-muted-foreground md:text-lg">
-              O LeadLink foi desenhado para dar contexto, velocidade e critério ao atendimento no
-              WhatsApp, reduzindo ruído e aumentando a qualidade do repasse para corretores e
-              equipes.
+              O LeadLink utiliza um sistema de quiz estratégico para filtrar, classificar e
+              qualificar cada lead antes dele chegar no WhatsApp do corretor.
             </p>
-            <div className="mt-7 grid gap-4 sm:grid-cols-2">
-              {[
-                { icon: Zap, title: "Resposta mais rápida" },
-                { icon: ShieldCheck, title: "Menos perda de lead" },
-                { icon: Users, title: "Repasse com contexto" },
-                { icon: Calendar, title: "Próximos passos claros" },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald/10 text-emerald">
-                    <item.icon className="h-4.5 w-4.5" />
-                  </div>
-                  <span className="text-sm font-medium">{item.title}</span>
-                </div>
-              ))}
-            </div>
+            <p className="mt-4 text-muted-foreground md:text-lg">
+              Durante o fluxo, o sistema identifica automaticamente informações como intenção de
+              compra ou locação, faixa de valor, região de interesse, urgência, perfil do imóvel e
+              nível de interesse do cliente.
+            </p>
+            <p className="mt-4 text-muted-foreground md:text-lg">
+              Com isso, o corretor recebe um atendimento muito mais organizado, com contexto
+              completo da conversa e prioridade definida, reduzindo tempo perdido e aumentando
+              significativamente as chances de conversão.
+            </p>
           </div>
         </div>
       </section>
