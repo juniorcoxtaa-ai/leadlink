@@ -1,14 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "";
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_PUBLISHABLE_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
   "";
 
 let browserClient: ReturnType<typeof createClient> | null = null;
@@ -16,7 +12,7 @@ let browserClient: ReturnType<typeof createClient> | null = null;
 export function getSupabaseBrowserClient() {
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error(
-      "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+      "Storage não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
     );
   }
 
@@ -32,4 +28,4 @@ export function getSupabaseBrowserClient() {
   return browserClient;
 }
 
-export { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY };
+export { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL };
