@@ -496,7 +496,7 @@ function sanitizeQuestions(questions: QuizQuestion[]): QuizQuestion[] {
  */
 export async function uploadImage(
   file: File,
-  _slug: string,
+  slug: string,
   kind: "photo" | "bg",
   opts: { maxDim?: number; quality?: number } = {},
 ): Promise<string> {
@@ -505,7 +505,11 @@ export async function uploadImage(
   const uploadFile = new File([blob], file.name || `${kind}.jpg`, {
     type: blob.type || "image/jpeg",
   });
-  return uploadPropertyImage(uploadFile);
+  return uploadPropertyImage(uploadFile, {
+    userId: slug || "meu-link",
+    propertyId: slug || "meu-link",
+    isPrimary: kind === "photo",
+  });
 }
 
 async function compressImage(file: File, maxDim: number, quality: number): Promise<Blob> {

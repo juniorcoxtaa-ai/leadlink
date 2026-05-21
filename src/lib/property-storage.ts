@@ -5,7 +5,7 @@ export const PROPERTY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PROPERTY_UPLOAD_ENDPOINT = "/api/property-images";
 
 type UploadOptions = {
-  userId: string;
+  userId?: string;
   propertyId?: string | null;
   isPrimary?: boolean;
 };
@@ -22,12 +22,16 @@ function assertAcceptedImage(file: File) {
 function buildObjectPath(file: File, options: UploadOptions) {
   const ext = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : "";
   const safeExt = ext && /^[a-z0-9]+$/i.test(ext) ? ext : "jpg";
+  const userId = options.userId?.trim() || "shared";
   const targetPropertyId = options.propertyId?.trim() || "draft";
   const variant = options.isPrimary ? "cover" : "gallery";
-  return `properties/${options.userId}/${targetPropertyId}/${variant}-${crypto.randomUUID()}.${safeExt}`;
+  return `properties/${userId}/${targetPropertyId}/${variant}-${crypto.randomUUID()}.${safeExt}`;
 }
 
-export async function uploadPropertyImage(file: File, options: UploadOptions): Promise<string> {
+export async function uploadPropertyImage(
+  file: File,
+  options: UploadOptions = {},
+): Promise<string> {
   assertAcceptedImage(file);
   try {
     const supabase = getSupabaseBrowserClient();
@@ -52,6 +56,7 @@ export async function uploadPropertyImage(file: File, options: UploadOptions): P
   } catch {
     const body = new FormData();
     body.append("file", file);
+    body.append("userId", options.userId?.trim() || "");
     body.append("propertyId", options.propertyId?.trim() || "");
     body.append("isPrimary", options.isPrimary ? "true" : "false");
 

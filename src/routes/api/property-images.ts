@@ -26,6 +26,7 @@ export const Route = createFileRoute("/api/property-images")({
 
         const formData = await request.formData();
         const file = formData.get("file");
+        const userId = String(formData.get("userId") ?? "").trim() || session.user.id;
         const propertyId = String(formData.get("propertyId") ?? "").trim() || null;
         const isPrimary = String(formData.get("isPrimary") ?? "") === "true";
         if (!(file instanceof File)) {
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/api/property-images")({
 
         try {
           const url = await uploadPropertyImageServer(file, {
-            userId: session.user.id,
+            userId,
             propertyId,
             isPrimary,
           });
