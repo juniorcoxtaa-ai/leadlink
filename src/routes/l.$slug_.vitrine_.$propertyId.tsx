@@ -14,10 +14,13 @@ import {
   Share2,
   Sparkles,
 } from "lucide-react";
+import { MetaPixelScript } from "@/components/MetaPixelScript";
 import { QuizDialog } from "@/components/QuizDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { EMPTY_MEU_LINK_CONFIG, type MeuLinkConfig } from "@/lib/meu-link-store";
+import { trackMetaCustomEvent } from "@/lib/meta-pixel";
 import { safeSrc } from "@/lib/media";
+import { EMPTY_MEU_LINK_CONFIG, type MeuLinkConfig } from "@/lib/meu-link-store";
+import { toWhatsappNumber } from "@/lib/phone";
 import {
   buildFeaturesList,
   buildPropertyDescription,
@@ -29,9 +32,9 @@ import {
   purposePriceLabel,
   repairText,
 } from "@/lib/property-display";
-import { toWhatsappNumber } from "@/lib/phone";
 import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { getPropertiesBySlug, getPropertyPublic } from "@/server-fns/properties";
+import { getPublicBrokerTrackingSettings } from "@/server-fns/tracking";
 
 type PublicProperty = PropertyDisplayInput & {
   id: string;
@@ -46,18 +49,21 @@ type PublicProperty = PropertyDisplayInput & {
 
 export const Route = createFileRoute("/l/$slug_/vitrine_/$propertyId")({
   head: ({ params }: { params: { slug: string } }) => ({
-    meta: [{ title: `ImÃ³vel â€” ${params.slug} Â· LeadLink` }],
+    meta: [{ title: `Imóvel — ${params.slug} · LeadLink` }],
   }),
   loader: async ({ params }: { params: { slug: string; propertyId: string } }) => {
-    const [property, rawCfg, props] = await Promise.all([
+    const [property, rawCfg, props, tracking] = await Promise.all([
       getPropertyPublic({ data: { slug: params.slug, propertyId: params.propertyId } }),
       loadMeuLinkConfig({ data: params.slug }),
       getPropertiesBySlug({ data: params.slug }),
+      getPublicBrokerTrackingSettings({ data: params.slug }),
     ]);
+
     const cfg: MeuLinkConfig = rawCfg
       ? { ...EMPTY_MEU_LINK_CONFIG, ...(rawCfg as Partial<MeuLinkConfig>) }
       : { ...EMPTY_MEU_LINK_CONFIG, slug: params.slug };
-    return { property, cfg, props };
+
+    return { property, cfg, props, tracking };
   },
   component: PropertyDetail,
 });
@@ -74,7 +80,7 @@ function formatMeterPrice(price?: number | null, area?: number | null) {
   const numericPrice = Number(price || 0);
   const numericArea = Number(area || 0);
   if (!numericPrice || !numericArea) return "";
-  return `${formatPropertyPrice(Math.round(numericPrice / numericArea))}/mÂ²`;
+  return `${formatPropertyPrice(Math.round(numericPrice / numericArea))}/m²`;
 }
 
 function buildDescriptionParagraphs(description: string) {
@@ -90,10 +96,12 @@ function PropertyDetail() {
     property: p,
     cfg,
     props,
+    tracking,
   } = Route.useLoaderData() as {
     property: PublicProperty | null;
     cfg: MeuLinkConfig;
     props: PublicProperty[];
+    tracking: Awaited<ReturnType<typeof getPublicBrokerTrackingSettings>>;
   };
   const [quizOpen, setQuizOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -103,10 +111,10 @@ function PropertyDetail() {
     return (
       <div className="min-h-screen bg-cream text-foreground flex items-center justify-center px-6">
         <div className="max-w-md text-center space-y-3">
-          <div className="text-4xl">ðŸ </div>
-          <h1 className="font-display text-2xl font-semibold">ImÃ³vel indisponÃ­vel</h1>
+          <div className="text-4xl">🏠</div>
+          <h1 className="font-display text-2xl font-semibold">Imóvel indisponível</h1>
           <p className="text-sm text-muted-foreground">
-            Este imÃ³vel nÃ£o estÃ¡ disponÃ­vel no momento.
+            Este imóvel não está disponível no momento.
           </p>
           <Link
             to="/l/$slug/vitrine"
@@ -141,7 +149,7 @@ function PropertyDetail() {
   const brokerPhone = toWhatsappNumber(p.whatsapp || p.phone || cfg.whatsapp || "") || "";
   const telUrl = brokerPhone ? `tel:+${brokerPhone}` : undefined;
   const relatedProperties = props
-    .filter((item) => item.id !== p.id && repairText(item.status) === "DisponÃ­vel")
+    .filter((item) => item.id !== p.id && repairText(item.status) === "Disponível")
     .slice(0, 4);
   const purpose = purposeBadgeLabel(p.businessType);
 
@@ -152,6 +160,21 @@ function PropertyDetail() {
 
   return (
     <div className="min-h-screen bg-cream text-foreground antialiased">
+      <MetaPixelScript
+        pixelId={tracking.pixelId}
+        pageKey={`/l/${slug}/vitrine/${p.id}`}
+        contentEvent={{
+          name: "ViewContent",
+          params: {
+            content_name: repairText(p.title),
+            content_ids: p.code || p.id,
+            content_type: "property",
+            value: p.price ?? 0,
+            currency: "BRL",
+          },
+        }}
+      />
+
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-cream/85 border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 md:py-3.5 flex items-center justify-between gap-3">
           <Link
@@ -260,7 +283,9 @@ function PropertyDetail() {
               <>
                 <button
                   type="button"
-                  onClick={() => setActive((index) => (index - 1 + gallery.length) % gallery.length)}
+                  onClick={() =>
+                    setActive((index) => (index - 1 + gallery.length) % gallery.length)
+                  }
                   aria-label="Anterior"
                   className="absolute left-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 md:h-11 md:w-11 rounded-full border border-white/70 bg-white/92 backdrop-blur-md grid place-items-center text-navy hover:bg-white shadow-[0_12px_30px_-12px_rgba(15,27,45,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 >
@@ -269,7 +294,7 @@ function PropertyDetail() {
                 <button
                   type="button"
                   onClick={() => setActive((index) => (index + 1) % gallery.length)}
-                  aria-label="PrÃ³ximo"
+                  aria-label="Próximo"
                   className="absolute right-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 md:h-11 md:w-11 rounded-full border border-white/70 bg-white/92 backdrop-blur-md grid place-items-center text-navy hover:bg-white shadow-[0_12px_30px_-12px_rgba(15,27,45,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 >
                   <ChevronRight className="h-6 w-6 md:h-5 md:w-5" />
@@ -373,9 +398,9 @@ function PropertyDetail() {
           <div className="space-y-12">
             <section>
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">
-                Sobre o imÃ³vel
+                Sobre o imóvel
               </div>
-              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imÃ³vel</h2>
+              <h2 className="font-display text-2xl font-semibold mb-4">Sobre o imóvel</h2>
               <div className="max-w-prose text-base md:text-lg text-muted-foreground leading-relaxed">
                 {descriptionParagraphs.length > 0 ? (
                   descriptionParagraphs.map((paragraph, index) => (
@@ -411,7 +436,7 @@ function PropertyDetail() {
             {location && (
               <section className="rounded-2xl overflow-hidden border border-border/70 bg-card">
                 <div className="aspect-[16/7] bg-[linear-gradient(135deg,_color-mix(in_oklab,_var(--navy)_15%,_transparent),_color-mix(in_oklab,_var(--gold)_15%,_transparent))] grid place-items-center text-muted-foreground text-xs uppercase tracking-[0.2em]">
-                  Mapa Â· {location}
+                  {`Mapa · ${location}`}
                 </div>
               </section>
             )}
@@ -460,6 +485,13 @@ function PropertyDetail() {
                 {telUrl && (
                   <a
                     href={telUrl}
+                    onClick={() =>
+                      trackMetaCustomEvent("Contact", {
+                        originPath: "property-phone",
+                        slug,
+                        propertyId: p.id,
+                      })
+                    }
                     className="flex items-center justify-center gap-2 w-full rounded-2xl border border-border bg-card text-foreground font-medium text-sm py-3.5 hover:border-navy/30 hover:bg-navy/5 transition"
                   >
                     <Phone className="h-4 w-4" /> Ligar agora
@@ -481,7 +513,7 @@ function PropertyDetail() {
                   <Check className="h-3 w-3 text-emerald" /> Visita acompanhada
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Check className="h-3 w-3 text-emerald" /> DocumentaÃ§Ã£o
+                  <Check className="h-3 w-3 text-emerald" /> Documentação
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 text-emerald" /> Financiamento
@@ -493,7 +525,7 @@ function PropertyDetail() {
             </div>
 
             <div className="rounded-2xl border border-dashed border-border bg-cream p-5 text-xs text-muted-foreground leading-relaxed">
-              Atendimento exclusivo de segunda a sÃ¡bado. Visitas mediante agendamento.
+              Atendimento exclusivo de segunda a sábado. Visitas mediante agendamento.
             </div>
           </aside>
         </div>
@@ -503,10 +535,10 @@ function PropertyDetail() {
             <div className="flex items-end justify-between mb-8">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1">
-                  Mais opÃ§Ãµes
+                  Mais opções
                 </div>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
-                  Outros imÃ³veis de {firstName}
+                  Outros imóveis de {firstName}
                 </h2>
               </div>
               <Link
@@ -523,7 +555,7 @@ function PropertyDetail() {
                 const itemDetails = getPropertyDetails(item)
                   .map((detail) => detail.compact)
                   .slice(0, 2)
-                  .join(" Â· ");
+                  .join(" · ");
                 const itemLocation = formatPropertyLocation(item);
 
                 return (
@@ -595,7 +627,7 @@ function PropertyDetail() {
             params={{ slug }}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imÃ³veis
+            <ArrowLeft className="h-3.5 w-3.5" /> Ver todos os imóveis
           </Link>
           <Link
             to="/"
@@ -618,27 +650,33 @@ function PropertyDetail() {
       </div>
 
       <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-        <DialogContent className="max-w-[min(96vw,1100px)] w-full border-0 bg-black/95 p-0 shadow-2xl overflow-hidden">
+        <DialogContent className="left-0 top-0 h-[100dvh] min-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-black p-0 shadow-2xl overflow-hidden [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:h-11 [&>button]:w-11 [&>button]:rounded-full [&>button]:bg-black/65 [&>button]:text-white [&>button]:opacity-100 [&>button]:ring-offset-0">
           <DialogTitle className="sr-only">Galeria de fotos do imóvel</DialogTitle>
-          <div className="relative">
-            <div className="relative aspect-[4/3] md:aspect-[16/10] bg-black">
-              {safeSrc(gallery[active]) ? (
-                <img
-                  src={safeSrc(gallery[active])}
-                  alt={`${repairText(p.title)} - foto ${active + 1}`}
-                  loading="eager"
-                  decoding="async"
-                  width={1600}
-                  height={1200}
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              ) : null}
+          <div className="flex h-[100dvh] min-h-[100dvh] flex-col bg-black">
+            <div className="relative flex-1 min-h-0 overflow-hidden px-4 pb-3 pt-16 sm:px-6">
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="flex max-h-[calc(100dvh-140px)] w-full max-w-full items-center justify-center">
+                  {safeSrc(gallery[active]) ? (
+                    <img
+                      src={safeSrc(gallery[active])}
+                      alt={`${repairText(p.title)} - foto ${active + 1}`}
+                      loading="eager"
+                      decoding="async"
+                      width={1600}
+                      height={1200}
+                      className="block h-auto max-h-full w-auto max-w-full object-contain"
+                    />
+                  ) : null}
+                </div>
+              </div>
 
               {gallery.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={() => setActive((index) => (index - 1 + gallery.length) % gallery.length)}
+                    onClick={() =>
+                      setActive((index) => (index - 1 + gallery.length) % gallery.length)
+                    }
                     aria-label="Foto anterior"
                     className="absolute left-3 top-1/2 z-10 -translate-y-1/2 h-12 w-12 rounded-full bg-white/92 text-navy grid place-items-center shadow-lg transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                   >
@@ -661,8 +699,8 @@ function PropertyDetail() {
             </div>
 
             {gallery.length > 1 && (
-              <div className="border-t border-white/10 bg-black/80 p-3">
-                <div className="flex gap-3 overflow-x-auto pb-1">
+              <div className="shrink-0 border-t border-white/10 bg-black/90 px-3 py-3">
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {gallery.map((img, index) => {
                     const thumbnailSrc = safeSrc(img);
 
@@ -672,7 +710,7 @@ function PropertyDetail() {
                         type="button"
                         onClick={() => setActive(index)}
                         aria-label={`Abrir foto ${index + 1}`}
-                        className={`relative h-20 w-24 shrink-0 overflow-hidden rounded-xl border transition ${
+                        className={`relative h-16 w-14 shrink-0 overflow-hidden rounded-lg border transition sm:h-20 sm:w-24 ${
                           active === index
                             ? "border-white shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
                             : "border-white/15 opacity-70 hover:opacity-100"
@@ -712,7 +750,7 @@ function PropertyDetail() {
         property={{
           id: p.id,
           code: p.code || "",
-          title: p.title || "Imovel",
+          title: p.title || "Imóvel",
           type: p.type || undefined,
           businessType: p.businessType || undefined,
           price: p.price || undefined,

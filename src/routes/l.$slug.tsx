@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { MeuLinkPreview } from "@/components/MeuLinkPreview";
+import { MetaPixelScript } from "@/components/MetaPixelScript";
 import { loadConfig, type MeuLinkConfig, EMPTY_MEU_LINK_CONFIG } from "@/lib/meu-link-store";
 import { getPropertiesBySlug } from "@/server-fns/properties";
+import { getPublicBrokerTrackingSettings } from "@/server-fns/tracking";
 
 type PublicMeuLinkParams = { slug: string };
 
@@ -16,15 +18,17 @@ export const Route = createFileRoute("/l/$slug")({
   loader: async ({ params }: { params: PublicMeuLinkParams }) => ({
     cfg: await loadConfig(params.slug),
     props: await getPropertiesBySlug({ data: params.slug }),
+    tracking: await getPublicBrokerTrackingSettings({ data: params.slug }),
   }),
   component: PublicLinkPage,
 });
 
 function PublicLinkPage() {
   const { slug } = Route.useParams();
-  const { cfg, props } = Route.useLoaderData() as {
+  const { cfg, props, tracking } = Route.useLoaderData() as {
     cfg: MeuLinkConfig | null;
     props: Awaited<ReturnType<typeof getPropertiesBySlug>>;
+    tracking: Awaited<ReturnType<typeof getPublicBrokerTrackingSettings>>;
   };
   const { data: liveCfg = cfg } = useQuery({
     queryKey: ["public-meu-link", slug, "config"],
@@ -57,11 +61,18 @@ function PublicLinkPage() {
 
   const view: MeuLinkConfig = liveCfg.slug === slug ? liveCfg : { ...EMPTY_MEU_LINK_CONFIG, slug };
   return (
-    <MeuLinkPreview
-      cfg={view}
-      fullScreen
-      featuredProperties={buildFeaturedProps(view, liveProps)}
-    />
+    <>
+      <MetaPixelScript
+        pixelId={tracking.pixelId}
+        pageKey={`/l/${slug}`}
+        customPageEvent={{ name: "ViewMeuLink" }}
+      />
+      <MeuLinkPreview
+        cfg={view}
+        fullScreen
+        featuredProperties={buildFeaturedProps(view, liveProps)}
+      />
+    </>
   );
 }
 

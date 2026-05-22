@@ -1,4 +1,4 @@
-import { Bath, Bed, Car, Home, MapPin, Maximize2, Waves } from "lucide-react";
+import { Bath, Bed, Car, Home, Maximize2, Waves } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type PropertyPurpose = "Venda" | "Locação" | "Temporada" | "Locação anual";
@@ -34,24 +34,24 @@ const mojibakeMap: Record<string, string> = {
   "Ã¢": "â",
   "Ã£": "ã",
   "Ã©": "é",
-  Ãª: "ê",
+  "Ãª": "ê",
   "Ã­": "í",
   "Ã³": "ó",
   "Ã´": "ô",
-  Ãµ: "õ",
-  Ãº: "ú",
+  "Ãµ": "õ",
+  "Ãº": "ú",
   "Ã§": "ç",
   "Ã": "Á",
   "Ã€": "À",
   "Ã‚": "Â",
-  Ãƒ: "Ã",
+  "Ãƒ": "Ã",
   "Ã‰": "É",
-  ÃŠ: "Ê",
+  "ÃŠ": "Ê",
   "Ã": "Í",
   "Ã“": "Ó",
   "Ã”": "Ô",
   "Ã•": "Õ",
-  Ãš: "Ú",
+  "Ãš": "Ú",
   "Ã‡": "Ç",
   "Â·": "·",
   "Â©": "©",
@@ -59,7 +59,37 @@ const mojibakeMap: Record<string, string> = {
   "â€”": "—",
   "â€¦": "…",
   "ðŸ ": "🏠",
-  "˜": "~",
+  "ÃƒÂ¡": "á",
+  "Ãƒ ": "à",
+  "ÃƒÂ¢": "â",
+  "ÃƒÂ£": "ã",
+  "ÃƒÂ©": "é",
+  "ÃƒÂª": "ê",
+  "ÃƒÂ­": "í",
+  "ÃƒÂ³": "ó",
+  "ÃƒÂ´": "ô",
+  "ÃƒÂµ": "õ",
+  "ÃƒÂº": "ú",
+  "ÃƒÂ§": "ç",
+  "ÃƒÂ": "Á",
+  "Ãƒâ‚¬": "À",
+  "Ãƒâ€š": "Â",
+  "ÃƒÆ’": "Ã",
+  "Ãƒâ€°": "É",
+  "ÃƒÅ ": "Ê",
+  "ÃƒÂ": "Í",
+  "Ãƒâ€œ": "Ó",
+  "Ãƒâ€": "Ô",
+  "Ãƒâ€¢": "Õ",
+  "ÃƒÅ¡": "Ú",
+  "Ãƒâ€¡": "Ç",
+  "Ã‚Â·": "·",
+  "Ã‚Â©": "©",
+  "mÃ‚Â²": "m²",
+  "Ã¢â‚¬â€": "—",
+  "Ã¢â‚¬Â¦": "…",
+  "Ã°Å¸ÂÂ ": "🏠",
+  "Ëœ": "~",
 };
 
 const featureLabels: Record<string, string> = {
@@ -279,8 +309,9 @@ export function buildPropertyDescription(property: PropertyDisplayInput) {
 
   if (details.length) sentences.push(`Conta com ${details.join(", ")}.`);
   if (features.length) sentences.push(`Diferenciais cadastrados: ${features.join(", ")}.`);
-  if (purpose)
+  if (purpose) {
     sentences.push(`${purposePriceLabel(purpose)} ${formatPropertyPrice(property.price)}.`);
+  }
 
   return sentences.join(" ");
 }

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { loadMeuLinkConfig } from "@/server-fns/meu-link";
 import { getPropertiesBySlug } from "@/server-fns/properties";
 import { QuizDialog } from "@/components/QuizDialog";
+import { MetaPixelScript } from "@/components/MetaPixelScript";
 import type { MeuLinkConfig } from "@/lib/meu-link-store";
 import { EMPTY_MEU_LINK_CONFIG } from "@/lib/meu-link-store";
 import { VITRINE_COLOR_VALUES } from "@/lib/vitrine-config";
@@ -30,6 +31,7 @@ import {
   purposePriceLabel,
   repairText,
 } from "@/lib/property-display";
+import { getPublicBrokerTrackingSettings } from "@/server-fns/tracking";
 
 type PublicProperty = PropertyDisplayInput & {
   id: string;
@@ -52,7 +54,8 @@ export const Route = createFileRoute("/l/$slug_/vitrine")({
       ? { ...EMPTY_MEU_LINK_CONFIG, ...(raw as Partial<MeuLinkConfig>) }
       : { ...EMPTY_MEU_LINK_CONFIG, slug: params.slug };
     const props = await getPropertiesBySlug({ data: params.slug });
-    return { cfg, props };
+    const tracking = await getPublicBrokerTrackingSettings({ data: params.slug });
+    return { cfg, props, tracking };
   },
   component: VitrinePage,
 });
@@ -83,9 +86,10 @@ const TYPES = ["Todos", "Apartamento", "Cobertura", "Casa", "Studio", "Comercial
 
 function VitrinePage() {
   const { slug } = Route.useParams();
-  const { cfg, props } = Route.useLoaderData() as {
+  const { cfg, props, tracking } = Route.useLoaderData() as {
     cfg: MeuLinkConfig;
     props: PublicProperty[];
+    tracking: Awaited<ReturnType<typeof getPublicBrokerTrackingSettings>>;
   };
   const { data: liveProps = props } = useQuery({
     queryKey: ["public-vitrine", slug, "properties"],
@@ -126,7 +130,7 @@ function VitrinePage() {
     const highlighted = props.filter((p) => p.highlight && repairText(p.status) === "Disponível");
     if (highlighted.length > 0) return highlighted.slice(0, 3);
     return props.filter((p) => repairText(p.status) === "Disponível").slice(0, 3);
-  }, [cfg.featuredIds, liveProps]);
+  }, [cfg.featuredIds, liveProps, props]);
 
   const cityRegion = cfg.city || props[0]?.city || "sua região";
   const heroImage =
@@ -141,6 +145,11 @@ function VitrinePage() {
       className="min-h-screen bg-cream text-foreground antialiased"
       style={{ "--vitrine-accent": accentColor } as CSSProperties}
     >
+      <MetaPixelScript
+        pixelId={tracking.pixelId}
+        pageKey={`/l/${slug}/vitrine`}
+        customPageEvent={{ name: "ViewVitrine" }}
+      />
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-cream/75 border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/l/$slug" params={{ slug }} className="flex items-center gap-3 group min-w-0">

@@ -11,12 +11,14 @@ import {
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
 export const plans = pgTable("plans", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(), // "free" | "pro" | "comercial"
   description: text("description"),
   priceMonthly: integer("price_monthly").notNull().default(0), // centavos
-  setupFee: integer("setup_fee").notNull().default(0),         // centavos
+  setupFee: integer("setup_fee").notNull().default(0), // centavos
   maxUsers: integer("max_users").notNull().default(1),
   maxProperties: integer("max_properties").notNull().default(5),
   maxLeadsPerMonth: integer("max_leads_per_month").notNull().default(30),
@@ -36,7 +38,9 @@ export const plans = pgTable("plans", {
 // ─── Organizations ────────────────────────────────────────────────────────────
 
 export const organizations = pgTable("organizations", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   planId: text("plan_id").references(() => plans.id),
   stripeCustomerId: text("stripe_customer_id"),
@@ -147,7 +151,9 @@ export const verification = pgTable("verification", {
 // ─── Leads ────────────────────────────────────────────────────────────────────
 
 export const leads = pgTable("leads", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
@@ -173,7 +179,9 @@ export const leads = pgTable("leads", {
 });
 
 export const activities = pgTable("activities", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   leadId: text("lead_id")
     .notNull()
     .references(() => leads.id, { onDelete: "cascade" }),
@@ -183,7 +191,9 @@ export const activities = pgTable("activities", {
 });
 
 export const chatMessages = pgTable("chat_messages", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   leadId: text("lead_id")
     .notNull()
     .references(() => leads.id, { onDelete: "cascade" }),
@@ -195,7 +205,9 @@ export const chatMessages = pgTable("chat_messages", {
 // ─── Imóveis ──────────────────────────────────────────────────────────────────
 
 export const properties = pgTable("properties", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   code: text("code").notNull().unique(),
   title: text("title").notNull(),
   type: text("type").notNull(),
@@ -229,7 +241,9 @@ export const properties = pgTable("properties", {
 // ─── Agenda ───────────────────────────────────────────────────────────────────
 
 export const appointments = pgTable("appointments", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   title: text("title").notNull(),
   type: text("type").notNull(),
   leadName: text("lead_name").notNull(),
@@ -254,24 +268,41 @@ export const meuLinkConfigs = pgTable("meu_link_configs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const integrationSettings = pgTable("integration_settings", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  enabled: boolean("enabled").notNull().default(false),
-  config: jsonb("config"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const integrationSettings = pgTable(
+  "integration_settings",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    config: jsonb("config"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userTypeUnique: uniqueIndex("integration_settings_user_type_unique").on(
+      table.userId,
+      table.type,
+    ),
+  }),
+);
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => ({
-  userTypeUnique: uniqueIndex("integration_settings_user_type_unique").on(table.userId, table.type),
-}));
+});
 
 // ─── Subscriptions (Stripe-ready) ─────────────────────────────────────────────
 
 export const subscriptions = pgTable("subscriptions", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
@@ -295,12 +326,13 @@ export const subscriptions = pgTable("subscriptions", {
 // ─── Payments ─────────────────────────────────────────────────────────────────
 
 export const payments = pgTable("payments", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  subscriptionId: text("subscription_id")
-    .references(() => subscriptions.id),
+  subscriptionId: text("subscription_id").references(() => subscriptions.id),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   amountCents: integer("amount_cents").notNull(),
   currency: text("currency").notNull().default("brl"),
@@ -320,6 +352,7 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Property = typeof properties.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type IntegrationSettings = typeof integrationSettings.$inferSelect;
+export type AppSettings = typeof appSettings.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;

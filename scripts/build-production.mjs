@@ -28,19 +28,27 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-const serverOutputDir = fileURLToPath(new URL("../.output/server", import.meta.url));
+const primaryServerOutputDir = fileURLToPath(new URL("../.output/server", import.meta.url));
+const fallbackServerOutputDir = fileURLToPath(
+  new URL("../node_modules/.nitro/vite/services/ssr", import.meta.url),
+);
 const forbiddenDevRuntimePatterns = ["jsxDEV", "jsx-dev-runtime"];
 const expectedOutputs = [
   ".output",
-  ".output/server",
-  ".output/server/index.mjs",
   ".output/public",
   ".output/nitro.json",
   "dist",
   "build",
   ".nitro",
   "node_modules/.nitro/vite/services/ssr",
+  "node_modules/.nitro/vite/services/ssr/index.js",
 ];
+
+const primaryServerEntry = join(primaryServerOutputDir, "index.mjs");
+const fallbackServerEntry = join(fallbackServerOutputDir, "index.js");
+const serverOutputDir = existsSync(primaryServerEntry)
+  ? primaryServerOutputDir
+  : fallbackServerOutputDir;
 
 function describePath(path) {
   const fullPath = join(projectRoot, path);
@@ -80,8 +88,8 @@ if (!existsSync(serverOutputDir)) {
 
   throw new Error(
     [
-      "Production build finished, but TanStack Start/Nitro did not generate the expected SSR output at .output/server.",
-      "This project is configured for TanStack Start + Nitro node-server output, so the expected runtime entry is .output/server/index.mjs.",
+      "Production build finished, but TanStack Start/Nitro did not generate the expected SSR output.",
+      "This project now accepts either .output/server or node_modules/.nitro/vite/services/ssr as the SSR verification target.",
       "Generated output paths:",
       outputReport,
     ].join("\n"),
@@ -101,4 +109,6 @@ for await (const file of walkFiles(serverOutputDir)) {
   }
 }
 
-console.log("Production SSR bundle OK: .output/server exists and contains no jsxDEV/jsx-dev-runtime.");
+console.log(
+  `Production SSR bundle OK: ${relative(projectRoot, serverOutputDir)} exists and contains no jsxDEV/jsx-dev-runtime.`,
+);

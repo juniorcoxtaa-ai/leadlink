@@ -22,6 +22,9 @@ import leadlinkLogo from "@/assets/leadlink-logo.png";
 import heroImg from "@/assets/leadlink-hero.jpg";
 import vitrineTabletImg from "@/assets/leadlink-vitrine-tablet.png";
 import quizFlowImg from "@/assets/leadlink-quiz-flow.png";
+import { MetaPixelScript } from "@/components/MetaPixelScript";
+import { getPublicGlobalTrackingSettings } from "@/server-fns/tracking";
+import { trackMetaCustomEvent } from "@/lib/meta-pixel";
 
 const PRELAUNCH_DATE = new Date("2026-05-25T00:00:00-03:00").getTime();
 const PRELAUNCH_WHATSAPP_URL = "https://chat.whatsapp.com/LGC6EMpPKtqLPuz7Z89dhB";
@@ -33,6 +36,7 @@ export const Route = createFileRoute("/")({
       throw redirect({ to: "/dashboard" });
     }
   },
+  loader: () => getPublicGlobalTrackingSettings(),
   head: () => ({
     meta: [
       { title: "LeadLink — Pré-lançamento em 25/05/2026" },
@@ -162,8 +166,13 @@ function CountdownCard() {
 }
 
 function LandingPage() {
+  const tracking = Route.useLoaderData() as Awaited<
+    ReturnType<typeof getPublicGlobalTrackingSettings>
+  >;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <MetaPixelScript pixelId={tracking.pixelId} pageKey="/" />
       <section className="relative overflow-hidden">
         <div
           className="absolute inset-0 -z-10 opacity-60"
@@ -201,6 +210,9 @@ function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto"
+                onClick={() => {
+                  trackMetaCustomEvent("WhatsAppClick", { originPath: "landing-prelaunch-top" });
+                }}
               >
                 <Button
                   size="lg"
@@ -319,6 +331,9 @@ function LandingPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="w-full max-w-2xl"
+              onClick={() => {
+                trackMetaCustomEvent("WhatsAppClick", { originPath: "landing-video" });
+              }}
             >
               <Button
                 size="lg"
@@ -395,6 +410,9 @@ function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto"
+                onClick={() => {
+                  trackMetaCustomEvent("WhatsAppClick", { originPath: "landing-vitrine" });
+                }}
               >
                 <Button
                   size="lg"
@@ -457,6 +475,9 @@ function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto"
+                onClick={() => {
+                  trackMetaCustomEvent("WhatsAppClick", { originPath: "landing-quiz" });
+                }}
               >
                 <Button
                   size="lg"
@@ -520,7 +541,14 @@ function LandingPage() {
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
-              <a href={PRELAUNCH_WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+              <a
+                href={PRELAUNCH_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  trackMetaCustomEvent("WhatsAppClick", { originPath: "landing-cta-final" });
+                }}
+              >
                 <Button
                   size="lg"
                   className="h-12 w-full bg-gold font-semibold text-navy shadow-lift hover:bg-gold/90 sm:w-auto"

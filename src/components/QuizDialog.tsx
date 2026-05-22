@@ -21,6 +21,7 @@ import {
 import { buildWhatsappMessage } from "@/lib/whatsapp-message";
 import { BRAZIL_PHONE_ERROR, toWhatsappNumber, validateBrazilPhone } from "@/lib/phone";
 import { openUrlWithFallback } from "@/lib/open-url";
+import { trackMetaCustomEvent, trackMetaEvent } from "@/lib/meta-pixel";
 
 type Props = {
   open: boolean;
@@ -360,6 +361,12 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
         },
       });
 
+      trackMetaEvent("Lead");
+      trackMetaCustomEvent("WhatsAppClick", {
+        originPath: originPath ?? "atendimento",
+        slug,
+        propertyId: property?.id ?? null,
+      });
       const whatsappUrl = `https://wa.me/${brokerWhatsapp}?text=${whatsappText}`;
       openUrlWithFallback(whatsappUrl);
       onOpenChange(false);
