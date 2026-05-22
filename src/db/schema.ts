@@ -8,6 +8,17 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+type RailwayDnsRecordValue = {
+  currentValue: string | null;
+  fqdn: string | null;
+  hostlabel: string | null;
+  purpose: string | null;
+  recordType: string | null;
+  requiredValue: string | null;
+  status: string | null;
+  zone: string | null;
+};
+
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
 export const plans = pgTable("plans", {
@@ -268,6 +279,33 @@ export const meuLinkConfigs = pgTable("meu_link_configs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const customDomains = pgTable(
+  "custom_domains",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    status: text("status").notNull().default("pending_dns"),
+    dnsTarget: text("dns_target").notNull().default("cname.leadlink.com.br"),
+    railwayDomainId: text("railway_domain_id"),
+    railwayCertificateStatus: text("railway_certificate_status"),
+    railwayVerificationToken: text("railway_verification_token"),
+    railwayDnsRecords: jsonb("railway_dns_records").$type<RailwayDnsRecordValue[] | null>(),
+    errorMessage: text("error_message"),
+    lastCheckedAt: timestamp("last_checked_at"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    domainUnique: uniqueIndex("custom_domains_domain_unique").on(table.domain),
+  }),
+);
+
 export const integrationSettings = pgTable(
   "integration_settings",
   {
@@ -357,3 +395,4 @@ export type Plan = typeof plans.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type CustomDomain = typeof customDomains.$inferSelect;

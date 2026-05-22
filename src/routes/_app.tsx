@@ -23,6 +23,7 @@ const TITLES: Record<string, { title: string; subtitle?: string }> = {
   "/integracoes": { title: "Integrações", subtitle: "Portais e ferramentas conectadas" },
   "/extensao": { title: "Extensão Atendimento", subtitle: "Chrome extension para WhatsApp Web" },
   "/meu-link": { title: "Meu Link", subtitle: "Página pública para captura de leads" },
+  "/dominio-vitrine": { title: "Domínio da Vitrine", subtitle: "Configuração de domínio próprio" },
   "/planos": { title: "Planos", subtitle: "Escolha o plano ideal para o seu negócio" },
   "/configuracoes": { title: "Configurações", subtitle: "Conta, equipe e preferências" },
 };

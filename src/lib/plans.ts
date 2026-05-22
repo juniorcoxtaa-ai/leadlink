@@ -18,6 +18,7 @@ export type PlanCapabilities = {
   hasCrm: boolean;
   hasAdvancedDashboard: boolean;
   hasCustomBranding: boolean;
+  hasCustomDomain: boolean;
   hasTeamManagement: boolean;
   hasLeadDistribution: boolean;
   hasPrioritySupport: boolean;
@@ -54,6 +55,7 @@ export const PLAN_CAPABILITIES: Record<PlanSlug, PlanCapabilities> = {
     hasCrm: false,
     hasAdvancedDashboard: false,
     hasCustomBranding: false,
+    hasCustomDomain: false,
     hasTeamManagement: false,
     hasLeadDistribution: false,
     hasPrioritySupport: false,
@@ -74,6 +76,7 @@ export const PLAN_CAPABILITIES: Record<PlanSlug, PlanCapabilities> = {
     hasCrm: true,
     hasAdvancedDashboard: false,
     hasCustomBranding: true,
+    hasCustomDomain: false,
     hasTeamManagement: false,
     hasLeadDistribution: false,
     hasPrioritySupport: false,
@@ -94,6 +97,7 @@ export const PLAN_CAPABILITIES: Record<PlanSlug, PlanCapabilities> = {
     hasCrm: true,
     hasAdvancedDashboard: true,
     hasCustomBranding: true,
+    hasCustomDomain: true,
     hasTeamManagement: true,
     hasLeadDistribution: true,
     hasPrioritySupport: true,
@@ -114,6 +118,7 @@ export const PLAN_CAPABILITIES: Record<PlanSlug, PlanCapabilities> = {
     hasCrm: true,
     hasAdvancedDashboard: true,
     hasCustomBranding: true,
+    hasCustomDomain: true,
     hasTeamManagement: true,
     hasLeadDistribution: true,
     hasPrioritySupport: true,
@@ -306,6 +311,7 @@ export type PublicPlanCard = {
   hasCrm: boolean;
   hasAdvancedDashboard: boolean;
   hasCustomBranding: boolean;
+  hasCustomDomain: boolean;
   hasTeamManagement: boolean;
   hasLeadDistribution: boolean;
   hasPrioritySupport: boolean;
@@ -327,6 +333,7 @@ export const PLAN_PUBLIC_CATALOG: PublicPlanCard[] = [
     hasCrm: false,
     hasAdvancedDashboard: false,
     hasCustomBranding: false,
+    hasCustomDomain: false,
     hasTeamManagement: false,
     hasLeadDistribution: false,
     hasPrioritySupport: false,
@@ -346,6 +353,7 @@ export const PLAN_PUBLIC_CATALOG: PublicPlanCard[] = [
     hasCrm: true,
     hasAdvancedDashboard: false,
     hasCustomBranding: true,
+    hasCustomDomain: false,
     hasTeamManagement: false,
     hasLeadDistribution: false,
     hasPrioritySupport: true,
@@ -365,6 +373,7 @@ export const PLAN_PUBLIC_CATALOG: PublicPlanCard[] = [
     hasCrm: true,
     hasAdvancedDashboard: true,
     hasCustomBranding: true,
+    hasCustomDomain: true,
     hasTeamManagement: true,
     hasLeadDistribution: true,
     hasPrioritySupport: true,

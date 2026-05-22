@@ -11,6 +11,7 @@ import {
   Plug,
   Puzzle,
   LinkIcon,
+  Globe,
   Sparkles,
   LogOut,
   Lock,
@@ -48,6 +49,7 @@ const tools = [
   { title: "Integrações", url: "/integracoes", icon: Plug },
   { title: "Extensão", url: "/extensao", icon: Puzzle },
   { title: "Meu Link", url: "/meu-link", icon: LinkIcon },
+  { title: "Domínio Vitrine", url: "/dominio-vitrine", icon: Globe },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 

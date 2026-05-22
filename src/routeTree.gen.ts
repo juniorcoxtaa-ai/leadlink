@@ -33,6 +33,7 @@ import { Route as AppLeadsRouteImport } from './routes/_app.leads'
 import { Route as AppIntegracoesRouteImport } from './routes/_app.integracoes'
 import { Route as AppImoveisRouteImport } from './routes/_app.imoveis'
 import { Route as AppExtensaoRouteImport } from './routes/_app.extensao'
+import { Route as AppDominioVitrineRouteImport } from './routes/_app.dominio-vitrine'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
 import { Route as AppAutomacoesRouteImport } from './routes/_app.automacoes'
@@ -171,6 +172,11 @@ const AppExtensaoRoute = AppExtensaoRouteImport.update({
   path: '/extensao',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDominioVitrineRoute = AppDominioVitrineRouteImport.update({
+  id: '/dominio-vitrine',
+  path: '/dominio-vitrine',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/automacoes': typeof AppAutomacoesRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/dominio-vitrine': typeof AppDominioVitrineRoute
   '/extensao': typeof AppExtensaoRoute
   '/imoveis': typeof AppImoveisRoute
   '/integracoes': typeof AppIntegracoesRoute
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   '/automacoes': typeof AppAutomacoesRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/dominio-vitrine': typeof AppDominioVitrineRoute
   '/extensao': typeof AppExtensaoRoute
   '/imoveis': typeof AppImoveisRoute
   '/integracoes': typeof AppIntegracoesRoute
@@ -360,6 +368,7 @@ export interface FileRoutesById {
   '/_app/automacoes': typeof AppAutomacoesRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/dominio-vitrine': typeof AppDominioVitrineRoute
   '/_app/extensao': typeof AppExtensaoRoute
   '/_app/imoveis': typeof AppImoveisRoute
   '/_app/integracoes': typeof AppIntegracoesRoute
@@ -405,6 +414,7 @@ export interface FileRouteTypes {
     | '/automacoes'
     | '/configuracoes'
     | '/dashboard'
+    | '/dominio-vitrine'
     | '/extensao'
     | '/imoveis'
     | '/integracoes'
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/automacoes'
     | '/configuracoes'
     | '/dashboard'
+    | '/dominio-vitrine'
     | '/extensao'
     | '/imoveis'
     | '/integracoes'
@@ -491,6 +502,7 @@ export interface FileRouteTypes {
     | '/_app/automacoes'
     | '/_app/configuracoes'
     | '/_app/dashboard'
+    | '/_app/dominio-vitrine'
     | '/_app/extensao'
     | '/_app/imoveis'
     | '/_app/integracoes'
@@ -715,6 +727,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExtensaoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/dominio-vitrine': {
+      id: '/_app/dominio-vitrine'
+      path: '/dominio-vitrine'
+      fullPath: '/dominio-vitrine'
+      preLoaderRoute: typeof AppDominioVitrineRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -861,6 +880,7 @@ interface AppRouteChildren {
   AppAutomacoesRoute: typeof AppAutomacoesRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppDominioVitrineRoute: typeof AppDominioVitrineRoute
   AppExtensaoRoute: typeof AppExtensaoRoute
   AppImoveisRoute: typeof AppImoveisRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
@@ -876,6 +896,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAutomacoesRoute: AppAutomacoesRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppDominioVitrineRoute: AppDominioVitrineRoute,
   AppExtensaoRoute: AppExtensaoRoute,
   AppImoveisRoute: AppImoveisRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
