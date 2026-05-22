@@ -19,7 +19,7 @@ import {
 } from "@/server-fns/custom-domain";
 import { getMySlug } from "@/server-fns/meu-link";
 
-const DEFAULT_DNS_TARGET = "cname.leadlink.com.br";
+const DEFAULT_DNS_TARGET = process.env.CNAME_TARGET ?? "cname.leadlink.app.br";
 
 export const Route = createFileRoute("/_app/dominio-vitrine")({
   head: () => ({ meta: [{ title: "Domínio da Vitrine — Leadlink" }] }),

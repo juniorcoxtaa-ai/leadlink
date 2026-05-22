@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { getEffectivePlanSlug, getPlanCapabilities } from "@/lib/plans";
 import { createRailwayCustomDomain, getRailwayDomainStatus } from "@/server/railway";
 
-const DNS_TARGET = (process.env.CNAME_TARGET ?? "cname.leadlink.com.br").trim().toLowerCase();
+const DNS_TARGET = (process.env.CNAME_TARGET ?? "cname.leadlink.app.br").trim().toLowerCase();
 const GOOGLE_DNS_ENDPOINT = "https://dns.google/resolve";
 const REMOVED_STATUS = "removed";
 const PENDING_DNS_STATUS = "pending_dns";

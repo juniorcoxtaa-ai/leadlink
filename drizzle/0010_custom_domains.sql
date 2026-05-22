@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS "custom_domains" (
   "user_id" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
   "domain" text NOT NULL,
   "status" text NOT NULL DEFAULT 'pending_dns',
-  "dns_target" text NOT NULL DEFAULT 'cname.leadlink.com.br',
+  "dns_target" text NOT NULL DEFAULT 'cname.leadlink.app.br',
   "railway_domain_id" text,
   "railway_certificate_status" text,
   "railway_verification_token" text,

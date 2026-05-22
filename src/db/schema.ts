@@ -290,7 +290,7 @@ export const customDomains = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
     status: text("status").notNull().default("pending_dns"),
-    dnsTarget: text("dns_target").notNull().default("cname.leadlink.com.br"),
+    dnsTarget: text("dns_target").notNull().default("cname.leadlink.app.br"),
     railwayDomainId: text("railway_domain_id"),
     railwayCertificateStatus: text("railway_certificate_status"),
     railwayVerificationToken: text("railway_verification_token"),
