@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertCircle, ExternalLink, Globe, LoaderCircle, Search, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Copy, ExternalLink, Globe, LoaderCircle, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ function DominioVitrinePage() {
   const [existingDomainInput, setExistingDomainInput] = useState("");
   const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult>(null);
   const [dnsTarget, setDnsTarget] = useState(DEFAULT_DNS_TARGET);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const { data: currentDomain = null, isLoading } = useQuery({
     queryKey: ["custom-domain", "current"],
@@ -101,7 +102,7 @@ function DominioVitrinePage() {
   const refreshStatusMutation = useMutation({
     mutationFn: () => refreshCustomDomainStatus(),
     onSuccess: async () => {
-      toast.success("Status do dominio atualizado");
+      toast.success("Status do domínio atualizado");
       await refreshDomain();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -138,6 +139,21 @@ function DominioVitrinePage() {
 
   const canManageDomain = plan.capabilities.hasCustomDomain;
   const statusMeta = getStatusMeta(currentDomain?.status);
+
+  const handleCopy = async (key: string, value: string | null | undefined) => {
+    if (!value) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      toast.success("Copiado");
+      window.setTimeout(() => {
+        setCopiedKey((current) => (current === key ? null : current));
+      }, 1800);
+    } catch {
+      toast.error("Não foi possível copiar agora.");
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto">
@@ -346,6 +362,12 @@ function DominioVitrinePage() {
                         <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                         <span>A propagação DNS pode levar até 24 horas.</span>
                       </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="font-medium">Passo 1</div>
+                        <p className="text-muted-foreground">
+                          Entre no painel onde você administra seu domínio e crie este apontamento:
+                        </p>
+                      </div>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -358,43 +380,79 @@ function DominioVitrinePage() {
                           <TableRow>
                             <TableCell>CNAME</TableCell>
                             <TableCell>www</TableCell>
-                            <TableCell className="font-mono text-xs">{resolvedDnsTarget}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-xs">{resolvedDnsTarget}</span>
+                                <CopyButton
+                                  copied={copiedKey === "cname-target"}
+                                  onClick={() => handleCopy("cname-target", resolvedDnsTarget)}
+                                />
+                              </div>
+                            </TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
+                      <div className="space-y-2 text-sm">
+                        <div className="font-medium">Passo 2</div>
+                        <p className="text-muted-foreground">
+                          Depois de salvar no seu provedor de domínio, volte aqui e clique em{" "}
+                          <span className="font-medium text-foreground">Verificar DNS agora</span>.
+                        </p>
+                      </div>
                     </div>
                   )}
 
                   {showRailwayRecords && (
                     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                       <div>
-                        <div className="text-sm font-medium">Registros pedidos pela Railway</div>
+                        <div className="text-sm font-medium">Se o seu provedor pedir mais dados</div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Use estes registros adicionais apenas se o seu provedor de domínio solicitar.
+                          Alguns provedores pedem mais informações para concluir a configuração. Se isso acontecer, use os dados abaixo.
                         </p>
                       </div>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Nome/Host</TableHead>
+                            <TableHead>O que criar</TableHead>
+                            <TableHead>Nome</TableHead>
                             <TableHead>Valor</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Finalidade</TableHead>
+                            <TableHead>Situação</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {railwayDnsRecords.map((record, index) => (
                             <TableRow key={getRailwayRecordKey(record, index)}>
-                              <TableCell>{record.recordType || "-"}</TableCell>
-                              <TableCell className="font-mono text-xs">
-                                {record.hostlabel || record.fqdn || "-"}
+                              <TableCell>{humanizeRecordType(record)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs">
+                                    {record.hostlabel || record.fqdn || "-"}
+                                  </span>
+                                  <CopyButton
+                                    copied={copiedKey === `record-host-${index}`}
+                                    onClick={() =>
+                                      handleCopy(
+                                        `record-host-${index}`,
+                                        record.hostlabel || record.fqdn || "",
+                                      )
+                                    }
+                                  />
+                                </div>
                               </TableCell>
-                              <TableCell className="font-mono text-xs break-all">
-                                {record.requiredValue || "-"}
+                              <TableCell>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs break-all">
+                                    {record.requiredValue || "-"}
+                                  </span>
+                                  <CopyButton
+                                    copied={copiedKey === `record-value-${index}`}
+                                    onClick={() =>
+                                      handleCopy(`record-value-${index}`, record.requiredValue || "")
+                                    }
+                                  />
+                                </div>
                               </TableCell>
                               <TableCell>{formatRailwayRecordStatus(record.status)}</TableCell>
-                              <TableCell>{record.purpose || "-"}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -402,19 +460,34 @@ function DominioVitrinePage() {
 
                       {railwayTxtValue && (
                         <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-900 space-y-2">
-                          <div className="font-medium">Registro TXT de verificação</div>
-                          <div className="grid gap-2 sm:grid-cols-3">
+                          <div className="font-medium">Se pedirem um código de verificação</div>
+                          <p className="text-xs text-sky-800">
+                            Copie e cole este registro TXT no painel do seu domínio.
+                          </p>
+                          <div className="grid gap-3 sm:grid-cols-3">
                             <div>
                               <div className="text-xs text-sky-700">Tipo</div>
                               <div className="font-mono text-xs">TXT</div>
                             </div>
                             <div>
                               <div className="text-xs text-sky-700">Nome/Host</div>
-                              <div className="font-mono text-xs">{railwayTxtHost}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-mono text-xs break-all">{railwayTxtHost}</div>
+                                <CopyButton
+                                  copied={copiedKey === "txt-host"}
+                                  onClick={() => handleCopy("txt-host", railwayTxtHost)}
+                                />
+                              </div>
                             </div>
                             <div>
                               <div className="text-xs text-sky-700">Valor</div>
-                              <div className="font-mono text-xs break-all">{railwayTxtValue}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-mono text-xs break-all">{railwayTxtValue}</div>
+                                <CopyButton
+                                  copied={copiedKey === "txt-value"}
+                                  onClick={() => handleCopy("txt-value", railwayTxtValue)}
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -541,10 +614,10 @@ function availabilityBadgeClass(status: "invalid_format" | "likely_available" | 
 }
 
 function formatRailwayRecordStatus(status?: string | null) {
-  if (status === "VALID") return "Válido";
-  if (status === "INVALID") return "Inválido";
+  if (status === "VALID") return "Confirmado";
+  if (status === "INVALID") return "Precisa ajustar";
   if (status === "PENDING") return "Pendente";
-  return status || "-";
+  return status ? "Em análise" : "-";
 }
 
 function getRailwayRecordKey(record: RailwayDnsRecord, index: number) {
@@ -562,5 +635,20 @@ function BuyLink({ href, label }: { href: string; label: string }) {
       {label}
       <ExternalLink className="h-3.5 w-3.5" />
     </a>
+  );
+}
+
+function humanizeRecordType(record: RailwayDnsRecord) {
+  if (record.recordType === "TXT") return "Código de verificação";
+  if (record.recordType === "CNAME") return "Apontamento do domínio";
+  return record.recordType || "Registro";
+}
+
+function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+  return (
+    <Button type="button" variant="outline" size="sm" className="h-8 rounded-full px-3" onClick={onClick}>
+      {copied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+      {copied ? "Copiado" : "Copiar"}
+    </Button>
   );
 }
