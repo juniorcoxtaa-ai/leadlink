@@ -29,10 +29,17 @@ async function getServerEntry(): Promise<ServerEntry> {
 
 function isMainAppHost(host: string): boolean {
   const normalizedHost = host.trim().toLowerCase();
+  const normalizedAppHost = APP_HOSTNAME.trim().toLowerCase().replace(/^www\./, "");
   if (!normalizedHost) return true;
-  if (normalizedHost === "localhost" || normalizedHost.endsWith(".localhost")) return true;
-  if (normalizedHost === APP_HOSTNAME) return true;
-  if (normalizedHost.endsWith(`.${APP_HOSTNAME}`)) return true;
+  if (
+    normalizedHost === "localhost" ||
+    normalizedHost === "127.0.0.1" ||
+    normalizedHost.endsWith(".localhost")
+  ) {
+    return true;
+  }
+  if (normalizedHost === normalizedAppHost || normalizedHost === `www.${normalizedAppHost}`) return true;
+  if (normalizedHost.endsWith(`.${normalizedAppHost}`)) return true;
   if (KNOWN_SUFFIXES.some((suffix) => normalizedHost === suffix || normalizedHost.endsWith(`.${suffix}`))) {
     return true;
   }
