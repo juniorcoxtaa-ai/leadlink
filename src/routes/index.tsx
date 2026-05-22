@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { getSession } from "@/server-fns/session";
 import { Button } from "@/components/ui/button";
@@ -187,19 +187,22 @@ function LandingPage() {
               <Sparkles className="h-3.5 w-3.5 text-gold" />
               Pré-lançamento oficial em 25/05/2026
             </div>
+            <div className="mt-2 inline-flex w-fit items-center rounded-full border border-gold/25 bg-gold/10 px-3 py-1 text-xs font-medium text-gold backdrop-blur">
+              Quem entrar agora garante desconto exclusivo no lançamento
+            </div>
             <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
               O novo jeito de captar e organizar{" "}
               <span className="italic text-gold">leads imobiliários</span> começa em 25/05.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              No pré-lançamento do LeadLink, imobiliárias e corretores terão acesso antecipado a uma
-              estrutura inteligente para transformar visitantes em atendimentos qualificados pelo
-              WhatsApp.
+              No pré-lançamento do LeadLink, imobiliárias e corretores terão acesso antecipado a
+              uma estrutura inteligente para transformar visitantes em atendimentos qualificados
+              pelo WhatsApp.
             </p>
             <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              O LeadLink nasce como infraestrutura premium para captação, organização e distribuição
-              de leads imobiliários, com operação comercial mais clara, rápida e preparada para
-              escala.
+              O LeadLink nasce como infraestrutura premium para captação, organização e
+              distribuição de leads imobiliários, com operação comercial mais clara, rápida e
+              preparada para escala.
             </p>
             <div className="mt-8 max-w-2xl">
               <CountdownCard />
@@ -383,8 +386,8 @@ function LandingPage() {
               Vitrine Personalizada para Cada Corretor
             </h2>
             <p className="mt-4 max-w-xl text-navy-foreground/70 md:text-lg">
-              Cada corretor possui sua própria página de imóveis, totalmente personalizável e pronta
-              para compartilhar.
+              Cada corretor possui sua própria página de imóveis, totalmente personalizável e
+              pronta para compartilhar.
             </p>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-navy-foreground/78 md:text-base">
               Uma estrutura moderna para apresentar imóveis, fortalecer autoridade e transformar
@@ -461,8 +464,8 @@ function LandingPage() {
             </p>
             <p className="mt-4 text-muted-foreground md:text-lg">
               Durante o fluxo, o sistema identifica automaticamente informações como intenção de
-              compra ou locação, faixa de valor, região de interesse, urgência, perfil do imóvel e
-              nível de interesse do cliente.
+              compra ou locação, faixa de valor, região de interesse, urgência, perfil do
+              imóvel e nível de interesse do cliente.
             </p>
             <p className="mt-4 text-muted-foreground md:text-lg">
               Com isso, o corretor recebe um atendimento muito mais organizado, com contexto
@@ -564,6 +567,7 @@ function LandingPage() {
       <footer className="border-t border-border/60">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-8">
           <div className="flex items-center gap-2.5">
+            {/* TODO: trocar pela versão oficial da logo para rodapé quando esse asset existir no projeto. */}
             <img src={leadlinkLogo} alt="LeadLink" className="h-7 w-7 rounded-md object-contain" />
             <span className="font-display text-base font-semibold">LeadLink</span>
             <span className="ml-2 text-xs text-muted-foreground">

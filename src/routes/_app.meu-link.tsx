@@ -72,6 +72,7 @@ import {
 } from "@/lib/quiz-blocks";
 import { MeuLinkPreview } from "@/components/MeuLinkPreview";
 import { safeSrc } from "@/lib/media";
+import { maskPhoneBR, onlyDigits } from "@/lib/masks";
 import { EmptyState } from "@/components/EmptyState";
 import { openUrlWithFallback } from "@/lib/open-url";
 
@@ -682,8 +683,10 @@ function MeuLinkPage() {
                     </Field>
                     <Field label="WhatsApp" required>
                       <Input
-                        value={cfg.whatsapp}
-                        onChange={(e) => update("whatsapp", e.target.value)}
+                        type="tel"
+                        inputMode="numeric"
+                        value={maskPhoneBR(cfg.whatsapp)}
+                        onChange={(e) => update("whatsapp", onlyDigits(e.target.value))}
                       />
                     </Field>
                   </div>

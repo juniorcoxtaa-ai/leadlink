@@ -10,6 +10,14 @@ import { searchProperties } from "@/server-fns/properties";
 import { shouldRunGlobalSearch } from "@/lib/global-search";
 import { getMeuLinkConfig } from "@/server-fns/meu-link";
 import { safeSrc } from "@/lib/media";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type SearchResult = {
   id: string;
@@ -36,7 +44,7 @@ type PropertySearchRow = {
   status?: string;
 };
 
-export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
+export function TopBar({ title }: { title: string; subtitle?: string }) {
   const ctx = useRouteContext({ strict: false }) as {
     user?: { name?: string; avatarUrl?: string | null };
   };
@@ -47,6 +55,8 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [supportOpen, setSupportOpen] = useState(false);
+  const notifications: Array<{ id: string; title: string }> = [];
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -194,13 +204,27 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
           variant="ghost"
           size="icon"
           className="rounded-full h-10 w-10 hidden md:inline-flex"
+          onClick={() => setSupportOpen(true)}
         >
           <HelpCircle className="h-[18px] w-[18px] text-muted-foreground" />
         </Button>
-        <Button variant="ghost" size="icon" className="relative rounded-full h-10 w-10">
-          <Bell className="h-[18px] w-[18px] text-muted-foreground" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald ring-2 ring-background" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative rounded-full h-10 w-10">
+              <Bell className="h-[18px] w-[18px] text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-0">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Notificações
+            </div>
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-muted-foreground">
+                Nenhuma notificação no momento.
+              </div>
+            ) : null}
+          </PopoverContent>
+        </Popover>
         <div className="h-8 w-px bg-border mx-1 hidden md:block" />
         <Avatar className="h-10 w-10 ring-1 ring-border">
           <AvatarImage src={topbarAvatarUrl} alt={user?.name || "Usuário"} />
@@ -209,6 +233,19 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
           </AvatarFallback>
         </Avatar>
       </div>
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suporte LeadLink</DialogTitle>
+            <DialogDescription>
+              Precisa de ajuda? Entre em contato com o canal oficial de suporte da sua operação.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Este espaço pode ser usado para orientar o usuário enquanto o atendimento é acionado.
+          </p>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

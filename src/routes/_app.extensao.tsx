@@ -1,7 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import {
   ArrowRight,
@@ -31,6 +39,8 @@ function ExtensaoPage() {
   const isFree = plan.isFree;
   const isCommercial = plan.isComercialIa;
   const isPro = plan.isPro;
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
   const proFeatures = [
     {
@@ -103,16 +113,27 @@ function ExtensaoPage() {
                 <p className="text-sm text-muted-foreground max-w-lg">
                   Você conhece o valor da extensão, mas o download fica disponível no Pro.
                 </p>
-                <Button className="bg-navy text-navy-foreground hover:bg-navy/90 rounded-full h-11 px-6">
+                <Button
+                  className="bg-navy text-navy-foreground hover:bg-navy/90 rounded-full h-11 px-6"
+                  onClick={() => setDownloadDialogOpen(true)}
+                >
                   Fazer upgrade para Pro <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2 mt-6">
-                <Button className="bg-navy text-navy-foreground hover:bg-navy/90 rounded-full h-11 px-6">
-                  <Chrome className="h-4 w-4 mr-2" /> {isCommercial ? "Entrar na lista da IA" : "Baixar extensão"}
+                <Button
+                  className="bg-navy text-navy-foreground hover:bg-navy/90 rounded-full h-11 px-6"
+                  onClick={() => setDownloadDialogOpen(true)}
+                >
+                  <Chrome className="h-4 w-4 mr-2" />{" "}
+                  {isCommercial ? "Entrar na lista da IA" : "Baixar extensão"}
                 </Button>
-                <Button variant="outline" className="rounded-full h-11 px-6">
+                <Button
+                  variant="outline"
+                  className="rounded-full h-11 px-6"
+                  onClick={() => setInstallDialogOpen(true)}
+                >
                   Ver instalação
                 </Button>
               </div>
@@ -120,7 +141,11 @@ function ExtensaoPage() {
             <div className="mt-5 grid gap-2 sm:grid-cols-3 max-w-xl">
               <PlanPill active={isFree} label="Free" description="Preview liberado" />
               <PlanPill active={isPro} label="Pro" description="Extensão manual" />
-              <PlanPill active={isCommercial} label="Comercial IA" description="Automação assistida" />
+              <PlanPill
+                active={isCommercial}
+                label="Comercial IA"
+                description="Automação assistida"
+              />
             </div>
             <div className="flex items-center gap-4 mt-6 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
@@ -221,6 +246,36 @@ function ExtensaoPage() {
         </div>
       </div>
 
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Extensão em breve</DialogTitle>
+            <DialogDescription>
+              A extensão estará disponível em breve. Assim que liberarmos o download, este botão
+              passará a funcionar.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Como instalar a extensão</DialogTitle>
+            <DialogDescription>
+              Quando o pacote estiver disponível, siga estes passos no Chrome.
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>Baixe o pacote da extensão pelo botão de download.</li>
+            <li>Abra `chrome://extensions` no navegador.</li>
+            <li>Ative o Modo do desenvolvedor no canto superior direito.</li>
+            <li>Clique em Carregar sem compactação e selecione a pasta da extensão.</li>
+            <li>Abra o WhatsApp Web e confirme se o painel do Lead Link apareceu.</li>
+          </ol>
+        </DialogContent>
+      </Dialog>
+
       <Card className="p-8 border-border/70">
         <div className="divider-ornament max-w-xs">
           <span>Vídeo demonstrativo</span>
@@ -242,9 +297,19 @@ function ExtensaoPage() {
   );
 }
 
-function PlanPill({ active, label, description }: { active: boolean; label: string; description: string }) {
+function PlanPill({
+  active,
+  label,
+  description,
+}: {
+  active: boolean;
+  label: string;
+  description: string;
+}) {
   return (
-    <div className={`rounded-xl border px-3 py-2 ${active ? "border-gold/50 bg-gold/10" : "border-white/15 bg-white/[0.04]"}`}>
+    <div
+      className={`rounded-xl border px-3 py-2 ${active ? "border-gold/50 bg-gold/10" : "border-white/15 bg-white/[0.04]"}`}
+    >
       <div className="text-xs font-semibold">{label}</div>
       <div className="text-[10px] text-muted-foreground">{description}</div>
     </div>

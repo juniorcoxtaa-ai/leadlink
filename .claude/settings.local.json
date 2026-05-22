@@ -31,7 +31,18 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\Downloads\\\\LEADLINK\" -Recurse -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -First 20)",
       "Bash(powershell -Command ' *)",
-      "Bash(grep -E \"\\\\.tsx$\")"
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(python -c ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\Downloads\\\\LEADLINK\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(awk '{print $NF}')",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -m pip install pypdf)",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); const deps = {...pkg.dependencies,...pkg.devDependencies}; const dnd = Object.entries\\(deps\\).filter\\(\\([k]\\)=>k.includes\\('dnd-kit'\\)\\); console.log\\(JSON.stringify\\(dnd\\)\\);\")",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); const deps = {...pkg.dependencies,...pkg.devDependencies}; const relevant = Object.entries\\(deps\\).filter\\(\\([k]\\)=>['@dnd-kit/sortable','@dnd-kit/utilities','@dnd-kit/modifiers'].some\\(s=>k===s\\)\\); console.log\\(relevant.length===0 ? 'no sortable/utilities' : JSON.stringify\\(relevant\\)\\);\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

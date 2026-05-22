@@ -19,6 +19,7 @@ import {
   type QuizQuestion,
 } from "@/lib/quiz-blocks";
 import { buildWhatsappMessage } from "@/lib/whatsapp-message";
+import { maskBRL, maskPhoneBR, onlyDigits } from "@/lib/masks";
 import { BRAZIL_PHONE_ERROR, toWhatsappNumber, validateBrazilPhone } from "@/lib/phone";
 import { openUrlWithFallback } from "@/lib/open-url";
 import { trackMetaCustomEvent, trackMetaEvent } from "@/lib/meta-pixel";
@@ -212,6 +213,14 @@ function getPropertyQuestions(property?: Props["property"]) {
   return PROPERTY_BUY_QUESTIONS;
 }
 
+function isCurrencyQuestion(question: QuizQuestion | undefined) {
+  if (!question) return false;
+  return (
+    /valor|orcamento|orçamento|capital/i.test(question.label) ||
+    /budget|rent|capital/i.test(question.id)
+  );
+}
+
 export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property }: Props) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -237,6 +246,9 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
   const current = steps[step];
   const progress = steps.length ? Math.round(((step + 1) / steps.length) * 100) : 0;
   const value = current ? (answers[current.id] ?? "") : "";
+  const isPhoneStep = current?.id === "q-phone";
+  const isCurrencyStep = isCurrencyQuestion(current);
+  const inputValue = isPhoneStep ? maskPhoneBR(value) : isCurrencyStep ? maskBRL(value) : value;
 
   const reset = () => {
     setStep(0);
@@ -500,8 +512,12 @@ export function QuizDialog({ open, onOpenChange, cfg, slug, originPath, property
                     current.type === "tel" ? "tel" : current.type === "number" ? "number" : "text"
                   }
                   placeholder={current.placeholder}
-                  value={value}
-                  onChange={(e) => setAnswers((a) => ({ ...a, [current.id]: e.target.value }))}
+                  value={inputValue}
+                  onChange={(e) => {
+                    const nextValue =
+                      isPhoneStep || isCurrencyStep ? onlyDigits(e.target.value) : e.target.value;
+                    setAnswers((a) => ({ ...a, [current.id]: nextValue }));
+                  }}
                   onKeyDown={(e) => e.key === "Enter" && next()}
                   autoFocus
                   disabled={submitting}
