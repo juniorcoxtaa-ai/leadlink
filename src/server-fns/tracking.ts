@@ -129,36 +129,39 @@ export const getAdminTrackingSettingsForUI = createServerFn({ method: "GET" }).h
   } satisfies AdminTrackingSettingsForUI;
 });
 
-export const saveAdminTrackingSettings = createServerFn({ method: "POST" })
-  .validator(trackingInputSchema)
-  .handler(async (ctx) => {
-    await requireAdminSession();
-    const [currentRow] = await db
-      .select({ value: appSettings.value })
-      .from(appSettings)
-      .where(eq(appSettings.key, GLOBAL_TRACKING_SETTINGS_KEY))
-      .limit(1);
-    const current = parseTrackingSettings(currentRow?.value);
-    const payload = normalizeTrackingSettings(ctx.data, current.metaConversionsApiToken);
+export const saveAdminTrackingSettings = createServerFn({ method: "POST" }).handler(async (ctx) => {
+  const parsed = trackingInputSchema.safeParse(ctx.data);
+  if (!parsed.success) {
+    throw new Error("Dados de rastreamento inválidos.");
+  }
 
-    const [row] = await db
-      .insert(appSettings)
-      .values({
-        key: GLOBAL_TRACKING_SETTINGS_KEY,
+  await requireAdminSession();
+  const [currentRow] = await db
+    .select({ value: appSettings.value })
+    .from(appSettings)
+    .where(eq(appSettings.key, GLOBAL_TRACKING_SETTINGS_KEY))
+    .limit(1);
+  const current = parseTrackingSettings(currentRow?.value);
+  const payload = normalizeTrackingSettings(parsed.data, current.metaConversionsApiToken);
+
+  const [row] = await db
+    .insert(appSettings)
+    .values({
+      key: GLOBAL_TRACKING_SETTINGS_KEY,
+      value: payload,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: {
         value: payload,
         updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: appSettings.key,
-        set: {
-          value: payload,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ value: appSettings.value });
+      },
+    })
+    .returning({ value: appSettings.value });
 
-    return parseTrackingSettings(row.value);
-  });
+  return parseTrackingSettings(row.value);
+});
 
 export const getBrokerTrackingSettings = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
@@ -184,9 +187,13 @@ export const getBrokerTrackingSettings = createServerFn({ method: "GET" }).handl
   };
 });
 
-export const saveBrokerTrackingSettings = createServerFn({ method: "POST" })
-  .validator(trackingInputSchema)
-  .handler(async (ctx) => {
+export const saveBrokerTrackingSettings = createServerFn({ method: "POST" }).handler(
+  async (ctx) => {
+    const parsed = trackingInputSchema.safeParse(ctx.data);
+    if (!parsed.success) {
+      throw new Error("Dados de rastreamento inválidos.");
+    }
+
     const session = await requireSession();
     const [currentRow] = await db
       .select({ config: integrationSettings.config })
@@ -199,7 +206,7 @@ export const saveBrokerTrackingSettings = createServerFn({ method: "POST" })
       )
       .limit(1);
     const current = parseTrackingSettings(currentRow?.config);
-    const payload = normalizeTrackingSettings(ctx.data, current.metaConversionsApiToken);
+    const payload = normalizeTrackingSettings(parsed.data, current.metaConversionsApiToken);
 
     const [row] = await db
       .insert(integrationSettings)
@@ -223,12 +230,13 @@ export const saveBrokerTrackingSettings = createServerFn({ method: "POST" })
         config: integrationSettings.config,
       });
 
-    const parsed = parseTrackingSettings(row.config);
+    const saved = parseTrackingSettings(row.config);
     return {
-      ...parsed,
-      trackingEnabled: row.enabled && parsed.trackingEnabled,
+      ...saved,
+      trackingEnabled: row.enabled && saved.trackingEnabled,
     };
-  });
+  },
+);
 
 export const getPublicGlobalTrackingSettings = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -246,10 +254,17 @@ export const getPublicGlobalTrackingSettings = createServerFn({ method: "GET" })
   },
 );
 
-export const getPublicBrokerTrackingSettings = createServerFn({ method: "GET" })
-  .validator(z.string())
-  .handler(async (ctx) => {
-    const slug = ctx.data.trim();
+export const getPublicBrokerTrackingSettings = createServerFn({ method: "GET" }).handler(
+  async (ctx) => {
+    const parsed = z.string().safeParse(ctx.data);
+    if (!parsed.success) {
+      return {
+        pixelId: "",
+        trackingEnabled: false,
+      } satisfies PublicTrackingSettings;
+    }
+
+    const slug = parsed.data.trim();
     if (!slug) return { pixelId: null, trackingEnabled: false } satisfies PublicTrackingSettings;
 
     const [config] = await db
@@ -275,9 +290,10 @@ export const getPublicBrokerTrackingSettings = createServerFn({ method: "GET" })
       )
       .limit(1);
 
-    const parsed = parseTrackingSettings(row?.config);
+    const settings = parseTrackingSettings(row?.config);
     return {
-      pixelId: row?.enabled && parsed.trackingEnabled ? parsed.metaPixelId : null,
-      trackingEnabled: row?.enabled === true && parsed.trackingEnabled,
+      pixelId: row?.enabled && settings.trackingEnabled ? settings.metaPixelId : null,
+      trackingEnabled: row?.enabled === true && settings.trackingEnabled,
     } satisfies PublicTrackingSettings;
-  });
+  },
+);
