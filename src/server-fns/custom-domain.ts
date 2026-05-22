@@ -157,21 +157,50 @@ const _registerCustomDomain = createServerFn({ method: "POST" }).handler(async (
     throw new Error("Voce ja possui um dominio proprio em andamento. Remova o atual para cadastrar outro.");
   }
 
-  const [takenByAnother] = await db
+  const [existingDomainRecord] = await db
     .select({
       id: customDomains.id,
       userId: customDomains.userId,
       status: customDomains.status,
     })
     .from(customDomains)
-    .where(and(eq(customDomains.domain, domain), ne(customDomains.status, REMOVED_STATUS)))
+    .where(eq(customDomains.domain, domain))
     .limit(1);
 
-  if (takenByAnother && takenByAnother.userId !== session.user.id) {
+  if (
+    existingDomainRecord &&
+    existingDomainRecord.userId === session.user.id &&
+    existingDomainRecord.status === REMOVED_STATUS
+  ) {
+    const now = new Date();
+    const [reactivated] = await db
+      .update(customDomains)
+      .set({
+        status: PENDING_DNS_STATUS,
+        dnsTarget: DNS_TARGET,
+        railwayDomainId: null,
+        railwayCertificateStatus: null,
+        railwayVerificationToken: null,
+        railwayDnsRecords: null,
+        errorMessage: null,
+        lastCheckedAt: null,
+        verifiedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(customDomains.id, existingDomainRecord.id))
+      .returning();
+
+    return {
+      ...reactivated,
+      dnsTarget: reactivated.dnsTarget,
+    };
+  }
+
+  if (existingDomainRecord && existingDomainRecord.userId !== session.user.id) {
     throw new Error("Este dominio ja esta em uso por outro usuario.");
   }
 
-  if (takenByAnother && takenByAnother.userId === session.user.id) {
+  if (existingDomainRecord && existingDomainRecord.userId === session.user.id) {
     throw new Error("Este dominio ja esta cadastrado na sua conta.");
   }
 
