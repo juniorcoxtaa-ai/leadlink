@@ -110,20 +110,33 @@ function getCurrentRailwayCnameTarget(domain: {
   railwayDnsRecords?: Array<{
     recordType?: string | null;
     dnsRecordType?: string | null;
+    type?: string | null;
     requiredValue?: string | null;
+    value?: string | null;
+    data?: string | null;
   }> | null;
 }) {
   const railwayDnsRecords = Array.isArray(domain.railwayDnsRecords) ? domain.railwayDnsRecords : [];
 
   for (const record of railwayDnsRecords) {
-    const recordType = String(record.recordType ?? record.dnsRecordType ?? "")
+    const recordType = String(record.recordType ?? record.dnsRecordType ?? record.type ?? "")
       .trim()
       .toUpperCase();
     const requiredValue = normalizeDnsValue(record.requiredValue);
+    const value = normalizeDnsValue(record.value);
+    const data = normalizeDnsValue(record.data);
 
-    if (recordType === "CNAME" && requiredValue && !LEGACY_DNS_TARGETS.has(requiredValue)) {
+    if (
+      (recordType === "CNAME" || recordType === "DNS_RECORD_TYPE_CNAME") &&
+      requiredValue &&
+      !LEGACY_DNS_TARGETS.has(requiredValue)
+    ) {
       return requiredValue;
     }
+
+    if (requiredValue.includes(".up.railway.app")) return requiredValue;
+    if (value.includes(".up.railway.app")) return value;
+    if (data.includes(".up.railway.app")) return data;
   }
 
   return "";
@@ -180,19 +193,16 @@ function getRailwayRegistrationErrorMessage(error: unknown) {
 function resolveDnsTargetFromRailwayRecords(
   dnsRecords: Array<{
     recordType: string | null;
+    dnsRecordType?: string | null;
+    type?: string | null;
     requiredValue: string | null;
+    value?: string | null;
+    data?: string | null;
     purpose: string | null;
   }>,
 ) {
-  const cnameRecord =
-    dnsRecords.find(
-      (record) =>
-        record.recordType === "CNAME" &&
-        typeof record.requiredValue === "string" &&
-        record.requiredValue.trim().length > 0,
-    ) ?? null;
-
-  return cnameRecord?.requiredValue?.trim().toLowerCase() || DNS_TARGET;
+  const target = getCurrentRailwayCnameTarget({ railwayDnsRecords: dnsRecords });
+  return target || DNS_TARGET;
 }
 
 async function resolveGoogleDns(name: string, type: "A" | "NS" | "CNAME") {
@@ -335,6 +345,12 @@ const _registerCustomDomain = createServerFn({ method: "POST" }).handler(async (
     const certificateStatus = railwayDomain.certificateStatus;
     const nextStatus = certificateStatus === "ISSUED" ? ACTIVE_STATUS : PENDING_DNS_STATUS;
     const dnsTargetFromRailway = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+    if (!dnsTargetFromRailway || isLegacyDnsTarget(dnsTargetFromRailway)) {
+      console.info("[custom-domain] failed to extract railway cname target", {
+        domain,
+        dnsRecords: JSON.stringify(railwayDomain.dnsRecords),
+      });
+    }
 
     if (
       existingDomainRecord &&
@@ -604,6 +620,7 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
         hostname: currentDomain.domain,
         reason: "legacy_or_empty_target_after_resolution",
         currentDnsTarget,
+        railwayDnsRecords: JSON.stringify(currentDomain.railwayDnsRecords ?? []),
       });
       throw new Error(
         "Nao foi possivel obter o destino atual da Railway. Remova e cadastre o dominio novamente.",

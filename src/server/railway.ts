@@ -19,10 +19,14 @@ type RailwayCertificateStatus = "PENDING" | "ISSUED" | "FAILED" | string | null;
 
 type RailwayDnsRecordRaw = {
   currentValue?: string | null;
+  data?: string | null;
+  value?: string | null;
   fqdn?: string | null;
   hostlabel?: string | null;
   purpose?: string | null;
   recordType?: string | null;
+  dnsRecordType?: string | null;
+  type?: string | null;
   requiredValue?: string | null;
   status?: RailwayDnsRecordStatus | null;
   zone?: string | null;
@@ -52,10 +56,14 @@ type RailwayServiceDomainRaw = {
 
 export type RailwayDnsRecord = {
   currentValue: string | null;
+  data?: string | null;
+  value?: string | null;
   fqdn: string | null;
   hostlabel: string | null;
   purpose: string | null;
   recordType: string | null;
+  dnsRecordType?: string | null;
+  type?: string | null;
   requiredValue: string | null;
   status: RailwayDnsRecordStatus | null;
   zone: string | null;
@@ -105,10 +113,14 @@ function requireRailwayIds() {
 function normalizeDnsRecord(record: RailwayDnsRecordRaw): RailwayDnsRecord {
   return {
     currentValue: typeof record.currentValue === "string" ? record.currentValue : null,
+    data: typeof record.data === "string" ? record.data : null,
+    value: typeof record.value === "string" ? record.value : null,
     fqdn: typeof record.fqdn === "string" ? record.fqdn : null,
     hostlabel: typeof record.hostlabel === "string" ? record.hostlabel : null,
     purpose: typeof record.purpose === "string" ? record.purpose : null,
     recordType: typeof record.recordType === "string" ? record.recordType : null,
+    dnsRecordType: typeof record.dnsRecordType === "string" ? record.dnsRecordType : null,
+    type: typeof record.type === "string" ? record.type : null,
     requiredValue: typeof record.requiredValue === "string" ? record.requiredValue : null,
     status: typeof record.status === "string" ? record.status : null,
     zone: typeof record.zone === "string" ? record.zone : null,
@@ -330,7 +342,8 @@ export async function createRailwayCustomDomain(
       environmentId,
       serviceId,
       domain: normalizedDomain,
-      response: data.customDomainCreate ?? null,
+      response: JSON.stringify(data.customDomainCreate ?? null),
+      dnsRecords: JSON.stringify(data.customDomainCreate?.status?.dnsRecords ?? []),
     });
 
     const normalized = normalizeCustomDomain(data.customDomainCreate ?? null);
