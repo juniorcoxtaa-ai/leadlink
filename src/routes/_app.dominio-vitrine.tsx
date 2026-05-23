@@ -28,6 +28,8 @@ type AvailabilityResult = Awaited<ReturnType<typeof checkDomainAvailability>> | 
 type CurrentDomain = Awaited<ReturnType<typeof getMyCustomDomain>>;
 type RailwayDnsRecord = NonNullable<NonNullable<CurrentDomain>["railwayDnsRecords"]>[number];
 
+const LEGACY_DNS_TARGETS = new Set(["cname.leadlink.app.br", "cname.leadlink.com.br"]);
+
 function DominioVitrinePage() {
   const queryClient = useQueryClient();
   const plan = usePlanLimits();
@@ -126,8 +128,16 @@ function DominioVitrinePage() {
     ? currentDomain.railwayDnsRecords
     : [];
   const railwayCnameRecord = railwayDnsRecords.find((record) => record.recordType === "CNAME") ?? null;
+  const normalizedCurrentDnsTarget = String(currentDomain?.dnsTarget ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.+$/, "");
+  const visualDnsTargetFromDomain =
+    normalizedCurrentDnsTarget && !LEGACY_DNS_TARGETS.has(normalizedCurrentDnsTarget)
+      ? currentDomain?.dnsTarget
+      : null;
   const resolvedDnsTarget =
-    currentDomain?.dnsTarget || railwayCnameRecord?.requiredValue || dnsTarget || null;
+    railwayCnameRecord?.requiredValue || visualDnsTargetFromDomain || null;
   const railwayTxtRecord = railwayDnsRecords.find((record) => record.recordType === "TXT") ?? null;
   const railwayTxtHost =
     railwayTxtRecord?.hostlabel || railwayTxtRecord?.fqdn || "_railway-verify.www";
@@ -412,8 +422,7 @@ function DominioVitrinePage() {
                         </>
                       ) : (
                         <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-                          Estamos preparando as instruções do seu domínio. Aguarde alguns instantes e
-                          atualize a página.
+                          Aguardando geração do target Railway.
                         </div>
                       )}
                     </div>

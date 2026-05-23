@@ -436,8 +436,8 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
     if (!matchesTarget) {
       const message =
         answers.length === 0
-          ? `Ainda nao encontramos o CNAME esperado para ${currentDnsTarget}. A propagacao DNS pode levar alguns minutos ou horas.`
-          : `O dominio ainda nao aponta para ${currentDnsTarget}. Atualize o registro CNAME e tente novamente apos a propagacao.`;
+          ? "Ainda nao encontramos o destino correto da Railway no DNS publico. A propagacao DNS pode levar alguns minutos ou horas."
+          : "O dominio ainda nao aponta para o destino correto da Railway. Atualize o CNAME e aguarde a propagacao DNS.";
 
       const [updated] = await db
         .update(customDomains)
