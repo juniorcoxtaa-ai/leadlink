@@ -475,18 +475,26 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
   let currentDnsTarget = getPreferredDnsTargetFromRecord(currentDomain);
 
   try {
-    const savedRailwayTarget = getPreferredDnsTargetFromRecord(currentDomain);
-    if (savedRailwayTarget && savedRailwayTarget !== normalizeDnsValue(currentDomain.dnsTarget)) {
-      const [synced] = await db
-        .update(customDomains)
-        .set({
-          dnsTarget: savedRailwayTarget,
-          updatedAt: now,
-        })
-        .where(eq(customDomains.id, currentDomain.id))
-        .returning();
+    if (currentDomain.railwayDomainId) {
+      const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+      if (railwayDomain) {
+        const railwayDnsTarget = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+        if (!isLegacyDnsTarget(railwayDnsTarget)) {
+          const [synced] = await db
+            .update(customDomains)
+            .set({
+              dnsTarget: railwayDnsTarget,
+              railwayDnsRecords: railwayDomain.dnsRecords,
+              railwayCertificateStatus: railwayDomain.certificateStatus,
+              railwayVerificationToken: railwayDomain.verificationToken,
+              updatedAt: now,
+            })
+            .where(eq(customDomains.id, currentDomain.id))
+            .returning();
 
-      currentDnsTarget = synced?.dnsTarget ?? savedRailwayTarget;
+          currentDnsTarget = synced?.dnsTarget ?? railwayDnsTarget;
+        }
+      }
     }
 
     if (!currentDnsTarget) {
@@ -516,6 +524,12 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
         .returning();
 
       currentDnsTarget = refreshed?.dnsTarget ?? refreshedDnsTarget;
+    }
+
+    if (isLegacyDnsTarget(currentDnsTarget)) {
+      throw new Error(
+        "Nao foi possivel obter o destino atual da Railway. Remova e cadastre o dominio novamente.",
+      );
     }
 
     const response = await resolveGoogleDns(currentDomain.domain, "CNAME");
