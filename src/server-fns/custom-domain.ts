@@ -106,6 +106,29 @@ function isLegacyDnsTarget(value?: string | null) {
   return !normalized || LEGACY_DNS_TARGETS.has(normalized);
 }
 
+function getCurrentRailwayCnameTarget(domain: {
+  railwayDnsRecords?: Array<{
+    recordType?: string | null;
+    dnsRecordType?: string | null;
+    requiredValue?: string | null;
+  }> | null;
+}) {
+  const railwayDnsRecords = Array.isArray(domain.railwayDnsRecords) ? domain.railwayDnsRecords : [];
+
+  for (const record of railwayDnsRecords) {
+    const recordType = String(record.recordType ?? record.dnsRecordType ?? "")
+      .trim()
+      .toUpperCase();
+    const requiredValue = normalizeDnsValue(record.requiredValue);
+
+    if (recordType === "CNAME" && requiredValue && !LEGACY_DNS_TARGETS.has(requiredValue)) {
+      return requiredValue;
+    }
+  }
+
+  return "";
+}
+
 function getPreferredDnsTargetFromRecord(currentDomain: {
   dnsTarget?: string | null;
   railwayDnsRecords?: Array<{
@@ -114,10 +137,7 @@ function getPreferredDnsTargetFromRecord(currentDomain: {
     purpose: string | null;
   }> | null;
 }) {
-  const railwayDnsRecords = Array.isArray(currentDomain.railwayDnsRecords)
-    ? currentDomain.railwayDnsRecords
-    : [];
-  const railwayTarget = resolveDnsTargetFromRailwayRecords(railwayDnsRecords);
+  const railwayTarget = getCurrentRailwayCnameTarget(currentDomain);
   const hasRailwayTarget = Boolean(railwayTarget) && !LEGACY_DNS_TARGETS.has(normalizeDnsValue(railwayTarget));
 
   if (hasRailwayTarget) {
@@ -473,12 +493,38 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
 
   const now = new Date();
   let currentDnsTarget = getPreferredDnsTargetFromRecord(currentDomain);
+  const currentRailwayDomainId = currentDomain.railwayDomainId;
 
   try {
-    if (currentDomain.railwayDomainId) {
-      const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+    const railwayRecordsTarget = getCurrentRailwayCnameTarget(currentDomain);
+    if (railwayRecordsTarget) {
+      console.info("[dns-check] using railwayDnsRecords target", {
+        hostname: currentDomain.domain,
+        railwayRecordsTarget,
+      });
+
+      if (railwayRecordsTarget !== normalizeDnsValue(currentDomain.dnsTarget)) {
+        const [synced] = await db
+          .update(customDomains)
+          .set({
+            dnsTarget: railwayRecordsTarget,
+            updatedAt: now,
+          })
+          .where(eq(customDomains.id, currentDomain.id))
+          .returning();
+
+        currentDnsTarget = synced?.dnsTarget ?? railwayRecordsTarget;
+      } else {
+        currentDnsTarget = railwayRecordsTarget;
+      }
+    }
+
+    if (currentRailwayDomainId) {
+      const railwayDomain = await getRailwayDomainStatus(currentRailwayDomainId);
       if (railwayDomain) {
-        const railwayDnsTarget = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+        const railwayDnsTarget = getCurrentRailwayCnameTarget({
+          railwayDnsRecords: railwayDomain.dnsRecords,
+        });
         if (!isLegacyDnsTarget(railwayDnsTarget)) {
           const [synced] = await db
             .update(customDomains)
@@ -498,18 +544,45 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
     }
 
     if (!currentDnsTarget) {
-      if (!currentDomain.railwayDomainId) {
+      if (!currentRailwayDomainId) {
+        if (!isLegacyDnsTarget(currentDomain.dnsTarget)) {
+          currentDnsTarget = normalizeDnsValue(currentDomain.dnsTarget);
+          console.info("[dns-check] using dnsTarget fallback", {
+            hostname: currentDomain.domain,
+            currentDnsTarget,
+          });
+        } else {
+          console.info("[dns-check] no valid target found", {
+            hostname: currentDomain.domain,
+            reason: "no_railway_domain_id_and_legacy_dnstarget",
+          });
+        }
+      }
+
+      if (!currentDnsTarget && !currentRailwayDomainId) {
         throw new Error(
           "Este dominio ainda usa configuracao antiga. Remova e cadastre novamente para gerar os registros corretos.",
         );
       }
 
-      const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+      if (!currentRailwayDomainId) {
+        throw new Error(
+          "Nao foi possivel obter o destino atual da Railway. Remova e cadastre o dominio novamente.",
+        );
+      }
+
+      const railwayDomain = await getRailwayDomainStatus(currentRailwayDomainId);
       if (!railwayDomain) {
+        console.info("[dns-check] no valid target found", {
+          hostname: currentDomain.domain,
+          reason: "railway_status_missing",
+        });
         throw new Error("Nao foi possivel localizar este dominio na Railway agora.");
       }
 
-      const refreshedDnsTarget = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+      const refreshedDnsTarget = getCurrentRailwayCnameTarget({
+        railwayDnsRecords: railwayDomain.dnsRecords,
+      });
       const [refreshed] = await db
         .update(customDomains)
         .set({
@@ -527,6 +600,11 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
     }
 
     if (isLegacyDnsTarget(currentDnsTarget)) {
+      console.info("[dns-check] no valid target found", {
+        hostname: currentDomain.domain,
+        reason: "legacy_or_empty_target_after_resolution",
+        currentDnsTarget,
+      });
       throw new Error(
         "Nao foi possivel obter o destino atual da Railway. Remova e cadastre o dominio novamente.",
       );
