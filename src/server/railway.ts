@@ -391,3 +391,11 @@ export async function getRailwayDomainStatus(
   const domains = await listRailwayDomains();
   return domains.customDomains.find((item) => item.domain === value.toLowerCase()) ?? null;
 }
+
+export async function isRailwayDomainAttachedToService(domain: string): Promise<boolean> {
+  const normalizedDomain = domain.trim().toLowerCase();
+  if (!normalizedDomain) return false;
+
+  const domains = await listRailwayDomains();
+  return domains.customDomains.some((item) => item.domain === normalizedDomain);
+}

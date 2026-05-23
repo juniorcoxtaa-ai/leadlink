@@ -6,7 +6,11 @@ import { db } from "@/db";
 import { customDomains, organizations, plans, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { getEffectivePlanSlug, getPlanCapabilities } from "@/lib/plans";
-import { createRailwayCustomDomain, getRailwayDomainStatus } from "@/server/railway";
+import {
+  createRailwayCustomDomain,
+  getRailwayDomainStatus,
+  isRailwayDomainAttachedToService,
+} from "@/server/railway";
 
 const DNS_TARGET = (process.env.CNAME_TARGET ?? "cname.leadlink.app.br").trim().toLowerCase();
 const GOOGLE_DNS_ENDPOINT = "https://dns.google/resolve";
@@ -184,12 +188,19 @@ async function resolveRailwayProvisionedDomain(currentDomain: {
   if (currentDomain.railwayDomainId) {
     try {
       const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
-      if (railwayDomain) {
-        console.info("[custom-domain] railway domain reused successfully", {
+      const isAttached = await isRailwayDomainAttachedToService(currentDomain.domain);
+      if (railwayDomain && isAttached) {
+        console.info("[custom-domain] railway domain attached successfully", {
           domain: currentDomain.domain,
           railwayDomainId: currentDomain.railwayDomainId,
         });
         return { railwayDomain, resetRailwayLink: false };
+      }
+      if (railwayDomain && !isAttached) {
+        console.info("[custom-domain] railway domain not attached, recreating", {
+          domain: currentDomain.domain,
+          railwayDomainId: currentDomain.railwayDomainId,
+        });
       }
     } catch {
       // Fallback to recreation below when the old Railway link is no longer valid.
