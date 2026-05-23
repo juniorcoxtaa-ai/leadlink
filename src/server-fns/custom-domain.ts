@@ -106,6 +106,31 @@ function isLegacyDnsTarget(value?: string | null) {
   return !normalized || LEGACY_DNS_TARGETS.has(normalized);
 }
 
+function getPreferredDnsTargetFromRecord(currentDomain: {
+  dnsTarget?: string | null;
+  railwayDnsRecords?: Array<{
+    recordType: string | null;
+    requiredValue: string | null;
+    purpose: string | null;
+  }> | null;
+}) {
+  const railwayDnsRecords = Array.isArray(currentDomain.railwayDnsRecords)
+    ? currentDomain.railwayDnsRecords
+    : [];
+  const railwayTarget = resolveDnsTargetFromRailwayRecords(railwayDnsRecords);
+  const hasRailwayTarget = Boolean(railwayTarget) && !LEGACY_DNS_TARGETS.has(normalizeDnsValue(railwayTarget));
+
+  if (hasRailwayTarget) {
+    return railwayTarget;
+  }
+
+  if (!isLegacyDnsTarget(currentDomain.dnsTarget)) {
+    return normalizeDnsValue(currentDomain.dnsTarget);
+  }
+
+  return "";
+}
+
 function getRailwayProvisioningErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
     return `O DNS foi validado, mas nao foi possivel provisionar o dominio na Railway agora. ${error.message}`;
@@ -447,10 +472,24 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
   }
 
   const now = new Date();
-  let currentDnsTarget = currentDomain.dnsTarget;
+  let currentDnsTarget = getPreferredDnsTargetFromRecord(currentDomain);
 
   try {
-    if (isLegacyDnsTarget(currentDomain.dnsTarget)) {
+    const savedRailwayTarget = getPreferredDnsTargetFromRecord(currentDomain);
+    if (savedRailwayTarget && savedRailwayTarget !== normalizeDnsValue(currentDomain.dnsTarget)) {
+      const [synced] = await db
+        .update(customDomains)
+        .set({
+          dnsTarget: savedRailwayTarget,
+          updatedAt: now,
+        })
+        .where(eq(customDomains.id, currentDomain.id))
+        .returning();
+
+      currentDnsTarget = synced?.dnsTarget ?? savedRailwayTarget;
+    }
+
+    if (!currentDnsTarget) {
       if (!currentDomain.railwayDomainId) {
         throw new Error(
           "Este dominio ainda usa configuracao antiga. Remova e cadastre novamente para gerar os registros corretos.",
