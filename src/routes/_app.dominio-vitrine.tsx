@@ -30,6 +30,12 @@ type RailwayDnsRecord = NonNullable<NonNullable<CurrentDomain>["railwayDnsRecord
 
 const LEGACY_DNS_TARGETS = new Set(["cname.leadlink.app.br", "cname.leadlink.com.br"]);
 
+function isRailwayCnameRecord(record: RailwayDnsRecord) {
+  return String(record.recordType ?? "")
+    .toUpperCase()
+    .includes("CNAME");
+}
+
 function DominioVitrinePage() {
   const queryClient = useQueryClient();
   const plan = usePlanLimits();
@@ -127,7 +133,7 @@ function DominioVitrinePage() {
   const railwayDnsRecords = Array.isArray(currentDomain?.railwayDnsRecords)
     ? currentDomain.railwayDnsRecords
     : [];
-  const railwayCnameRecord = railwayDnsRecords.find((record) => record.recordType === "CNAME") ?? null;
+  const railwayCnameRecord = railwayDnsRecords.find((record) => isRailwayCnameRecord(record)) ?? null;
   const normalizedCurrentDnsTarget = String(currentDomain?.dnsTarget ?? "")
     .trim()
     .toLowerCase()
