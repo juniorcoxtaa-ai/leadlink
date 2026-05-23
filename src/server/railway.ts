@@ -174,6 +174,10 @@ export async function railwayGraphql<T>(
 
   const payload = (await response.json()) as RailwayGraphqlResponse<T>;
   if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    console.error("[railway] GraphQL errors", {
+      variables,
+      errors: payload.errors,
+    });
     const message = payload.errors
       .map((error) => error.message?.trim())
       .filter((value): value is string => Boolean(value))
@@ -303,6 +307,12 @@ export async function createRailwayCustomDomain(
   }
 
   const { projectId, environmentId, serviceId } = requireRailwayIds();
+  console.info("[railway] customDomainCreate input", {
+    projectId,
+    environmentId,
+    serviceId,
+    domain: normalizedDomain,
+  });
 
   try {
     const data = await railwayGraphql<{
@@ -314,6 +324,13 @@ export async function createRailwayCustomDomain(
         serviceId,
         domain: normalizedDomain,
       },
+    });
+    console.info("[railway] customDomainCreate response", {
+      projectId,
+      environmentId,
+      serviceId,
+      domain: normalizedDomain,
+      response: data.customDomainCreate ?? null,
     });
 
     const normalized = normalizeCustomDomain(data.customDomainCreate ?? null);
@@ -328,6 +345,15 @@ export async function createRailwayCustomDomain(
       message.includes("exists") ||
       message.includes("taken") ||
       message.includes("duplicate");
+
+    console.error("[railway] customDomainCreate failed", {
+      projectId,
+      environmentId,
+      serviceId,
+      domain: normalizedDomain,
+      graphqlError: error instanceof Error ? error.message : error,
+      looksLikeAlreadyExists,
+    });
 
     if (!looksLikeAlreadyExists) {
       throw error;
