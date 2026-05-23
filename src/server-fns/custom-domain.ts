@@ -177,17 +177,37 @@ async function getCurrentNonRemovedDomain(userId: string) {
 async function resolveRailwayProvisionedDomain(currentDomain: {
   domain: string;
   railwayDomainId: string | null;
-}) {
+}): Promise<{
+  railwayDomain: Awaited<ReturnType<typeof createRailwayCustomDomain>>;
+  resetRailwayLink: boolean;
+}> {
   if (currentDomain.railwayDomainId) {
-    const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
-    if (!railwayDomain) {
-      throw new Error("Nao foi possivel localizar este dominio na Railway agora.");
+    try {
+      const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+      if (railwayDomain) {
+        console.info("[custom-domain] railway domain reused successfully", {
+          domain: currentDomain.domain,
+          railwayDomainId: currentDomain.railwayDomainId,
+        });
+        return { railwayDomain, resetRailwayLink: false };
+      }
+    } catch {
+      // Fallback to recreation below when the old Railway link is no longer valid.
     }
-
-    return railwayDomain;
+    console.info("[custom-domain] railway domain missing, recreating", {
+      domain: currentDomain.domain,
+      railwayDomainId: currentDomain.railwayDomainId,
+    });
+    return {
+      railwayDomain: await createRailwayCustomDomain(currentDomain.domain),
+      resetRailwayLink: true,
+    };
   }
 
-  return createRailwayCustomDomain(currentDomain.domain);
+  return {
+    railwayDomain: await createRailwayCustomDomain(currentDomain.domain),
+    resetRailwayLink: false,
+  };
 }
 
 export const getMyCustomDomain = createServerFn({ method: "GET" }).handler(async () => {
@@ -239,15 +259,23 @@ const _registerCustomDomain = createServerFn({ method: "POST" }).handler(async (
   const now = new Date();
 
   try {
-    const railwayDomain =
+    const railwayProvisioning =
       existingDomainRecord &&
       existingDomainRecord.userId === session.user.id &&
       existingDomainRecord.status === REMOVED_STATUS
-        ? await resolveRailwayProvisionedDomain({
+        ? (console.info("[custom-domain] reusing removed domain", {
             domain,
             railwayDomainId: existingDomainRecord.railwayDomainId,
-          })
-        : await createRailwayCustomDomain(domain);
+          }),
+          await resolveRailwayProvisionedDomain({
+            domain,
+            railwayDomainId: existingDomainRecord.railwayDomainId,
+          }))
+        : {
+            railwayDomain: await createRailwayCustomDomain(domain),
+            resetRailwayLink: false,
+          };
+    const railwayDomain = railwayProvisioning.railwayDomain;
     const certificateStatus = railwayDomain.certificateStatus;
     const nextStatus = certificateStatus === "ISSUED" ? ACTIVE_STATUS : PENDING_DNS_STATUS;
     const dnsTargetFromRailway = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
@@ -257,6 +285,19 @@ const _registerCustomDomain = createServerFn({ method: "POST" }).handler(async (
       existingDomainRecord.userId === session.user.id &&
       existingDomainRecord.status === REMOVED_STATUS
     ) {
+      if (railwayProvisioning.resetRailwayLink) {
+        await db
+          .update(customDomains)
+          .set({
+            railwayDomainId: null,
+            railwayCertificateStatus: null,
+            railwayVerificationToken: null,
+            railwayDnsRecords: null,
+            updatedAt: now,
+          })
+          .where(eq(customDomains.id, existingDomainRecord.id));
+      }
+
       const [reactivated] = await db
         .update(customDomains)
         .set({
