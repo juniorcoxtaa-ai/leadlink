@@ -481,9 +481,34 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
 
     const response = await resolveGoogleDns(currentDomain.domain, "CNAME");
     const answers = Array.isArray(response.Answer) ? response.Answer : [];
+    const normalizedExpectedTarget = normalizeDnsValue(currentDnsTarget);
+    const resolvedCnameValues = answers
+      .filter((answer) => answer.type === 5 || typeof answer.data === "string")
+      .map((answer) => normalizeDnsValue(answer.data));
+
+    console.info("[dns-check] expected target", {
+      hostname: currentDomain.domain,
+      expectedTarget: currentDnsTarget,
+      normalizedExpectedTarget,
+    });
+    console.info("[dns-check] resolved cname", {
+      hostname: currentDomain.domain,
+      answers,
+      resolvedCnameValues,
+    });
+
     const matchesTarget = answers.some(
-      (answer) => normalizeDnsValue(answer.data) === normalizeDnsValue(currentDnsTarget),
+      (answer) =>
+        (answer.type === 5 || typeof answer.data === "string") &&
+        normalizeDnsValue(answer.data) === normalizedExpectedTarget,
     );
+
+    console.info("[dns-check] normalized comparison", {
+      hostname: currentDomain.domain,
+      normalizedExpectedTarget,
+      resolvedCnameValues,
+      matchesTarget,
+    });
 
     if (!matchesTarget) {
       const message =
