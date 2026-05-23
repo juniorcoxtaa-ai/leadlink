@@ -12,11 +12,10 @@ const DNS_TARGET = (process.env.CNAME_TARGET ?? "cname.leadlink.app.br").trim().
 const GOOGLE_DNS_ENDPOINT = "https://dns.google/resolve";
 const REMOVED_STATUS = "removed";
 const PENDING_DNS_STATUS = "pending_dns";
-const DNS_VERIFIED_STATUS = "dns_verified";
-const PROVISIONING_RAILWAY_STATUS = "provisioning_railway";
 const PENDING_SSL_STATUS = "pending_ssl";
 const ACTIVE_STATUS = "active";
 const FAILED_STATUS = "failed";
+const LEGACY_DNS_TARGETS = new Set(["cname.leadlink.app.br", "cname.leadlink.com.br"]);
 
 const domainInputSchema = z.object({
   domain: z.string(),
@@ -98,12 +97,53 @@ function normalizeDnsValue(value?: string | null) {
     .replace(/\.+$/, "");
 }
 
+function isLegacyDnsTarget(value?: string | null) {
+  const normalized = normalizeDnsValue(value);
+  return !normalized || LEGACY_DNS_TARGETS.has(normalized);
+}
+
 function getRailwayProvisioningErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
     return `O DNS foi validado, mas nao foi possivel provisionar o dominio na Railway agora. ${error.message}`;
   }
 
   return "O DNS foi validado, mas nao foi possivel provisionar o dominio na Railway agora.";
+}
+
+function getRailwayRegistrationErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    normalizedMessage.includes("limit") &&
+    normalizedMessage.includes("domain")
+  ) {
+    return "O limite de dominios da infraestrutura foi atingido no momento. Tente novamente mais tarde ou fale com o suporte.";
+  }
+
+  if (message.trim()) {
+    return `Nao foi possivel cadastrar o dominio na infraestrutura agora. ${message}`;
+  }
+
+  return "Nao foi possivel cadastrar o dominio na infraestrutura agora.";
+}
+
+function resolveDnsTargetFromRailwayRecords(
+  dnsRecords: Array<{
+    recordType: string | null;
+    requiredValue: string | null;
+    purpose: string | null;
+  }>,
+) {
+  const cnameRecord =
+    dnsRecords.find(
+      (record) =>
+        record.recordType === "CNAME" &&
+        typeof record.requiredValue === "string" &&
+        record.requiredValue.trim().length > 0,
+    ) ?? null;
+
+  return cnameRecord?.requiredValue?.trim().toLowerCase() || DNS_TARGET;
 }
 
 async function resolveGoogleDns(name: string, type: "A" | "NS" | "CNAME") {
@@ -134,6 +174,22 @@ async function getCurrentNonRemovedDomain(userId: string) {
   return row ?? null;
 }
 
+async function resolveRailwayProvisionedDomain(currentDomain: {
+  domain: string;
+  railwayDomainId: string | null;
+}) {
+  if (currentDomain.railwayDomainId) {
+    const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+    if (!railwayDomain) {
+      throw new Error("Nao foi possivel localizar este dominio na Railway agora.");
+    }
+
+    return railwayDomain;
+  }
+
+  return createRailwayCustomDomain(currentDomain.domain);
+}
+
 export const getMyCustomDomain = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
   const row = await getCurrentNonRemovedDomain(session.user.id);
@@ -162,70 +218,144 @@ const _registerCustomDomain = createServerFn({ method: "POST" }).handler(async (
       id: customDomains.id,
       userId: customDomains.userId,
       status: customDomains.status,
+      railwayDomainId: customDomains.railwayDomainId,
     })
     .from(customDomains)
     .where(eq(customDomains.domain, domain))
     .limit(1);
 
-  if (
-    existingDomainRecord &&
-    existingDomainRecord.userId === session.user.id &&
-    existingDomainRecord.status === REMOVED_STATUS
-  ) {
-    const now = new Date();
-    const [reactivated] = await db
-      .update(customDomains)
-      .set({
-        status: PENDING_DNS_STATUS,
-        dnsTarget: DNS_TARGET,
-        railwayDomainId: null,
-        railwayCertificateStatus: null,
-        railwayVerificationToken: null,
-        railwayDnsRecords: null,
-        errorMessage: null,
-        lastCheckedAt: null,
-        verifiedAt: null,
-        updatedAt: now,
-      })
-      .where(eq(customDomains.id, existingDomainRecord.id))
-      .returning();
-
-    return {
-      ...reactivated,
-      dnsTarget: reactivated.dnsTarget,
-    };
-  }
-
   if (existingDomainRecord && existingDomainRecord.userId !== session.user.id) {
     throw new Error("Este dominio ja esta em uso por outro usuario.");
   }
 
-  if (existingDomainRecord && existingDomainRecord.userId === session.user.id) {
+  if (
+    existingDomainRecord &&
+    existingDomainRecord.userId === session.user.id &&
+    existingDomainRecord.status !== REMOVED_STATUS
+  ) {
     throw new Error("Este dominio ja esta cadastrado na sua conta.");
   }
 
-  const [created] = await db
-    .insert(customDomains)
-    .values({
-      userId: session.user.id,
-      domain,
-      status: PENDING_DNS_STATUS,
-      dnsTarget: DNS_TARGET,
-      railwayDomainId: null,
-      railwayCertificateStatus: null,
-      railwayVerificationToken: null,
-      railwayDnsRecords: null,
-      errorMessage: null,
-      lastCheckedAt: null,
-      verifiedAt: null,
-      updatedAt: new Date(),
-    })
-    .returning();
+  const now = new Date();
 
-  return {
-    ...created,
-    dnsTarget: created.dnsTarget,
-  };
+  try {
+    const railwayDomain =
+      existingDomainRecord &&
+      existingDomainRecord.userId === session.user.id &&
+      existingDomainRecord.status === REMOVED_STATUS
+        ? await resolveRailwayProvisionedDomain({
+            domain,
+            railwayDomainId: existingDomainRecord.railwayDomainId,
+          })
+        : await createRailwayCustomDomain(domain);
+    const certificateStatus = railwayDomain.certificateStatus;
+    const nextStatus = certificateStatus === "ISSUED" ? ACTIVE_STATUS : PENDING_DNS_STATUS;
+    const dnsTargetFromRailway = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+
+    if (
+      existingDomainRecord &&
+      existingDomainRecord.userId === session.user.id &&
+      existingDomainRecord.status === REMOVED_STATUS
+    ) {
+      const [reactivated] = await db
+        .update(customDomains)
+        .set({
+          status: nextStatus,
+          dnsTarget: dnsTargetFromRailway,
+          railwayDomainId: railwayDomain.railwayDomainId,
+          railwayCertificateStatus: certificateStatus,
+          railwayVerificationToken: railwayDomain.verificationToken,
+          railwayDnsRecords: railwayDomain.dnsRecords,
+          errorMessage: null,
+          lastCheckedAt: null,
+          verifiedAt: certificateStatus === "ISSUED" ? now : null,
+          updatedAt: now,
+        })
+        .where(eq(customDomains.id, existingDomainRecord.id))
+        .returning();
+
+      return {
+        ...reactivated,
+        dnsTarget: reactivated.dnsTarget,
+      };
+    }
+
+    const [created] = await db
+      .insert(customDomains)
+      .values({
+        userId: session.user.id,
+        domain,
+        status: nextStatus,
+        dnsTarget: dnsTargetFromRailway,
+        railwayDomainId: railwayDomain.railwayDomainId,
+        railwayCertificateStatus: certificateStatus,
+        railwayVerificationToken: railwayDomain.verificationToken,
+        railwayDnsRecords: railwayDomain.dnsRecords,
+        errorMessage: null,
+        lastCheckedAt: null,
+        verifiedAt: certificateStatus === "ISSUED" ? now : null,
+        updatedAt: now,
+      })
+      .returning();
+
+    return {
+      ...created,
+      status: nextStatus,
+      dnsTarget: created.dnsTarget,
+    };
+  } catch (error) {
+    const message = getRailwayRegistrationErrorMessage(error);
+    if (
+      existingDomainRecord &&
+      existingDomainRecord.userId === session.user.id &&
+      existingDomainRecord.status === REMOVED_STATUS
+    ) {
+      const [failedReactivation] = await db
+        .update(customDomains)
+        .set({
+          status: FAILED_STATUS,
+          dnsTarget: "",
+          railwayDomainId: null,
+          railwayCertificateStatus: null,
+          railwayVerificationToken: null,
+          railwayDnsRecords: null,
+          errorMessage: message,
+          lastCheckedAt: now,
+          verifiedAt: null,
+          updatedAt: now,
+        })
+        .where(eq(customDomains.id, existingDomainRecord.id))
+        .returning();
+
+      return {
+        ...failedReactivation,
+        dnsTarget: failedReactivation.dnsTarget,
+      };
+    }
+
+    const [failedRecord] = await db
+      .insert(customDomains)
+      .values({
+        userId: session.user.id,
+        domain,
+        status: FAILED_STATUS,
+        dnsTarget: "",
+        railwayDomainId: null,
+        railwayCertificateStatus: null,
+        railwayVerificationToken: null,
+        railwayDnsRecords: null,
+        errorMessage: message,
+        lastCheckedAt: now,
+        verifiedAt: null,
+        updatedAt: now,
+      })
+      .returning();
+
+    return {
+      ...failedRecord,
+      dnsTarget: failedRecord.dnsTarget,
+    };
+  }
 });
 
 export const registerCustomDomain = _registerCustomDomain as unknown as (opts: {
@@ -265,19 +395,49 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
   }
 
   const now = new Date();
+  let currentDnsTarget = currentDomain.dnsTarget;
 
   try {
+    if (isLegacyDnsTarget(currentDomain.dnsTarget)) {
+      if (!currentDomain.railwayDomainId) {
+        throw new Error(
+          "Este dominio ainda usa configuracao antiga. Remova e cadastre novamente para gerar os registros corretos.",
+        );
+      }
+
+      const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+      if (!railwayDomain) {
+        throw new Error("Nao foi possivel localizar este dominio na Railway agora.");
+      }
+
+      const refreshedDnsTarget = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+      const [refreshed] = await db
+        .update(customDomains)
+        .set({
+          dnsTarget: refreshedDnsTarget,
+          railwayCertificateStatus: railwayDomain.certificateStatus,
+          railwayVerificationToken: railwayDomain.verificationToken,
+          railwayDnsRecords: railwayDomain.dnsRecords,
+          lastCheckedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(customDomains.id, currentDomain.id))
+        .returning();
+
+      currentDnsTarget = refreshed?.dnsTarget ?? refreshedDnsTarget;
+    }
+
     const response = await resolveGoogleDns(currentDomain.domain, "CNAME");
     const answers = Array.isArray(response.Answer) ? response.Answer : [];
     const matchesTarget = answers.some(
-      (answer) => normalizeDnsValue(answer.data) === normalizeDnsValue(currentDomain.dnsTarget),
+      (answer) => normalizeDnsValue(answer.data) === normalizeDnsValue(currentDnsTarget),
     );
 
     if (!matchesTarget) {
       const message =
         answers.length === 0
-          ? `Ainda nao encontramos o CNAME esperado para ${currentDomain.dnsTarget}. A propagacao DNS pode levar alguns minutos ou horas.`
-          : `O dominio ainda nao aponta para ${currentDomain.dnsTarget}. Atualize o registro CNAME e tente novamente apos a propagacao.`;
+          ? `Ainda nao encontramos o CNAME esperado para ${currentDnsTarget}. A propagacao DNS pode levar alguns minutos ou horas.`
+          : `O dominio ainda nao aponta para ${currentDnsTarget}. Atualize o registro CNAME e tente novamente apos a propagacao.`;
 
       const [updated] = await db
         .update(customDomains)
@@ -293,88 +453,74 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
       return {
         ok: false,
         status: FAILED_STATUS,
-        dnsTarget: updated?.dnsTarget ?? currentDomain.dnsTarget,
+        dnsTarget: updated?.dnsTarget ?? currentDnsTarget,
         domain: currentDomain.domain,
         message,
         record: updated ?? currentDomain,
       };
     }
 
-    await db
-      .update(customDomains)
-      .set({
-        status: DNS_VERIFIED_STATUS,
-        errorMessage: null,
-        lastCheckedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(customDomains.id, currentDomain.id));
-
-    await db
-      .update(customDomains)
-      .set({
-        status: PROVISIONING_RAILWAY_STATUS,
-        errorMessage: null,
-        lastCheckedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(customDomains.id, currentDomain.id));
-
-    try {
-      const railwayDomain = await createRailwayCustomDomain(currentDomain.domain);
-      const certificateStatus = railwayDomain.certificateStatus;
-      const nextStatus = certificateStatus === "ISSUED" ? ACTIVE_STATUS : PENDING_SSL_STATUS;
+    if (!currentDomain.railwayDomainId) {
+      const message =
+        "O dominio ainda nao foi cadastrado na infraestrutura. Cadastre novamente o dominio para gerar os registros corretos.";
 
       const [updated] = await db
         .update(customDomains)
         .set({
-          status: nextStatus,
-          railwayDomainId: railwayDomain.railwayDomainId,
-          railwayCertificateStatus: certificateStatus,
-          railwayVerificationToken: railwayDomain.verificationToken,
-          railwayDnsRecords: railwayDomain.dnsRecords,
-          verifiedAt: certificateStatus === "ISSUED" ? now : null,
+          status: FAILED_STATUS,
+          errorMessage: message,
           lastCheckedAt: now,
-          errorMessage: null,
           updatedAt: now,
         })
         .where(eq(customDomains.id, currentDomain.id))
         .returning();
 
       return {
-        ok: certificateStatus === "ISSUED",
+        ok: false,
+        status: FAILED_STATUS,
+        dnsTarget: updated?.dnsTarget ?? currentDnsTarget,
+        domain: currentDomain.domain,
+        message,
+        record: updated ?? currentDomain,
+      };
+    }
+
+    const railwayDomain = await getRailwayDomainStatus(currentDomain.railwayDomainId);
+    if (!railwayDomain) {
+      throw new Error("Nao foi possivel localizar este dominio na Railway agora.");
+    }
+
+    const certificateStatus = railwayDomain.certificateStatus;
+    const nextStatus = certificateStatus === "ISSUED" ? ACTIVE_STATUS : PENDING_SSL_STATUS;
+    const dnsTargetFromRailway = resolveDnsTargetFromRailwayRecords(railwayDomain.dnsRecords);
+
+    const [updated] = await db
+      .update(customDomains)
+      .set({
         status: nextStatus,
-        dnsTarget: updated?.dnsTarget ?? currentDomain.dnsTarget,
-        domain: currentDomain.domain,
-        message:
-          certificateStatus === "ISSUED"
-            ? "Dominio verificado e ativado com sucesso."
-            : "DNS validado com sucesso. O dominio foi enviado para a Railway e agora esta aguardando emissao do SSL.",
-        record: updated ?? currentDomain,
-      };
-    } catch (error) {
-      const message = getRailwayProvisioningErrorMessage(error);
+        dnsTarget: dnsTargetFromRailway,
+        railwayCertificateStatus: certificateStatus,
+        railwayVerificationToken: railwayDomain.verificationToken,
+        railwayDnsRecords: railwayDomain.dnsRecords,
+        verifiedAt: certificateStatus === "ISSUED" ? now : null,
+        lastCheckedAt: now,
+        errorMessage: certificateStatus === "ISSUED" ? null : null,
+        updatedAt: now,
+      })
+      .where(eq(customDomains.id, currentDomain.id))
+      .returning();
 
-      const [updated] = await db
-        .update(customDomains)
-        .set({
-          status: FAILED_STATUS,
-          errorMessage: message,
-          lastCheckedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(customDomains.id, currentDomain.id))
-        .returning();
-
-      return {
-        ok: false,
-        status: FAILED_STATUS,
-        dnsTarget: updated?.dnsTarget ?? currentDomain.dnsTarget,
-        domain: currentDomain.domain,
-        message,
-        record: updated ?? currentDomain,
-      };
-    }
+    return {
+      ok: certificateStatus === "ISSUED",
+      status: nextStatus,
+      dnsTarget: updated?.dnsTarget ?? currentDnsTarget,
+      domain: currentDomain.domain,
+      message:
+        certificateStatus === "ISSUED"
+          ? "Dominio verificado e ativado com sucesso."
+          : "DNS validado com sucesso. Agora estamos aguardando a emissao do certificado SSL.",
+      record: updated ?? currentDomain,
+    };
   } catch (error) {
     const message =
       error instanceof Error
@@ -395,7 +541,7 @@ const _checkDomainDns = createServerFn({ method: "POST" }).handler(async () => {
     return {
       ok: false,
       status: FAILED_STATUS,
-      dnsTarget: updated?.dnsTarget ?? currentDomain.dnsTarget,
+      dnsTarget: updated?.dnsTarget ?? currentDnsTarget,
       domain: currentDomain.domain,
       message,
       record: updated ?? currentDomain,

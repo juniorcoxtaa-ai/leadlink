@@ -19,8 +19,6 @@ import {
 } from "@/server-fns/custom-domain";
 import { getMySlug } from "@/server-fns/meu-link";
 
-const DEFAULT_DNS_TARGET = process.env.CNAME_TARGET ?? "cname.leadlink.app.br";
-
 export const Route = createFileRoute("/_app/dominio-vitrine")({
   head: () => ({ meta: [{ title: "Domínio da Vitrine — Leadlink" }] }),
   component: DominioVitrinePage,
@@ -36,7 +34,7 @@ function DominioVitrinePage() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [existingDomainInput, setExistingDomainInput] = useState("");
   const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult>(null);
-  const [dnsTarget, setDnsTarget] = useState(DEFAULT_DNS_TARGET);
+  const [dnsTarget, setDnsTarget] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const { data: currentDomain = null, isLoading } = useQuery({
@@ -124,10 +122,12 @@ function DominioVitrinePage() {
         ? `/l/${mySlug}/vitrine`
         : null;
 
-  const resolvedDnsTarget = currentDomain?.dnsTarget || dnsTarget;
   const railwayDnsRecords = Array.isArray(currentDomain?.railwayDnsRecords)
     ? currentDomain.railwayDnsRecords
     : [];
+  const railwayCnameRecord = railwayDnsRecords.find((record) => record.recordType === "CNAME") ?? null;
+  const resolvedDnsTarget =
+    currentDomain?.dnsTarget || railwayCnameRecord?.requiredValue || dnsTarget || null;
   const railwayTxtRecord = railwayDnsRecords.find((record) => record.recordType === "TXT") ?? null;
   const railwayTxtHost =
     railwayTxtRecord?.hostlabel || railwayTxtRecord?.fqdn || "_railway-verify.www";
@@ -362,43 +362,60 @@ function DominioVitrinePage() {
                         <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                         <span>A propagação DNS pode levar até 24 horas.</span>
                       </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="font-medium">Passo 1</div>
-                        <p className="text-muted-foreground">
-                          Entre no painel onde você administra seu domínio e crie este apontamento:
-                        </p>
-                      </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Nome/Host</TableHead>
-                            <TableHead>Valor/Destino</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>CNAME</TableCell>
-                            <TableCell>www</TableCell>
-                            <TableCell>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-xs">{resolvedDnsTarget}</span>
-                                <CopyButton
-                                  copied={copiedKey === "cname-target"}
-                                  onClick={() => handleCopy("cname-target", resolvedDnsTarget)}
-                                />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                      <div className="space-y-2 text-sm">
-                        <div className="font-medium">Passo 2</div>
-                        <p className="text-muted-foreground">
-                          Depois de salvar no seu provedor de domínio, volte aqui e clique em{" "}
-                          <span className="font-medium text-foreground">Verificar DNS agora</span>.
-                        </p>
-                      </div>
+                      {resolvedDnsTarget ? (
+                        <>
+                          <div className="space-y-2 text-sm">
+                            <div className="font-medium">Passo 1</div>
+                            <p className="text-muted-foreground">
+                              Entre no painel onde você administra seu domínio e crie este apontamento:
+                            </p>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead>Nome/Host</TableHead>
+                                <TableHead>Valor/Destino</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>CNAME</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-xs">www</span>
+                                    <CopyButton
+                                      copied={copiedKey === "cname-host"}
+                                      onClick={() => handleCopy("cname-host", "www")}
+                                    />
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-xs break-all">{resolvedDnsTarget}</span>
+                                    <CopyButton
+                                      copied={copiedKey === "cname-target"}
+                                      onClick={() => handleCopy("cname-target", resolvedDnsTarget)}
+                                    />
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                          <div className="space-y-2 text-sm">
+                            <div className="font-medium">Passo 2</div>
+                            <p className="text-muted-foreground">
+                              Depois de salvar no seu provedor de domínio, volte aqui e clique em{" "}
+                              <span className="font-medium text-foreground">Verificar DNS agora</span>.
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+                          Estamos preparando as instruções do seu domínio. Aguarde alguns instantes e
+                          atualize a página.
+                        </div>
+                      )}
                     </div>
                   )}
 
